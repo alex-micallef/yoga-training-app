@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yoga Teacher</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sage: { 50:'#f2f7f3', 100:'#e0ece2', 200:'#c1d9c5', 400:'#8cb595', 500:'#7aaa81', 600:'#6b8f71', 700:'#557a5c', 800:'#3e5e45', 900:'#2b4231' },
+            terra: { 50:'#fdf3ef', 100:'#f7e5df', 200:'#edccc2', 400:'#d98b72', 500:'#c8765b', 600:'#b0614a', 700:'#8f4d3c' }
+          },
+          fontFamily: { display: ['"Playfair Display"', 'serif'], body: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    h1,h2,.font-display { font-family: 'Playfair Display', serif; }
+    .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #c1d9c5; border-radius: 4px; }
+    .drag-ghost { opacity: 0.4; }
+    .drag-over { border-top: 2px solid #6b8f71; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.15s ease-out; }
+    input:focus, textarea:focus, select:focus { outline: none; ring: none; }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+
+// ─── Storage ────────────────────────────────────────────────────────────────
+const storage = {
+  load: (key) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
+  save: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+};
+const KEYS = { poses:'yt_poses', vinyettes:'yt_vinyettes', classes:'yt_classes', seeded:'yt_seeded', classSeeded:'yt_class_seeded' };
+
+// ─── ID ─────────────────────────────────────────────────────────────────────
+let _id = 0;
+const uid = () => `${Date.now()}_${++_id}_${Math.random().toString(36).slice(2,7)}`;
+
+// ─── Context ─────────────────────────────────────────────────────────────────
+const AppCtx = createContext(null);
+function useApp() { return useContext(AppCtx); }
+
+// ─── Icons (inline SVG) ──────────────────────────────────────────────────────
+const Icon = {
+  menu: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+  plus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  edit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  trash: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+  eye: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  drag: <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-stone-400"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>,
+  x: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  chevLeft: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5"><polyline points="15 18 9 12 15 6"/></svg>,
+  chevRight: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5"><polyline points="9 18 15 12 9 6"/></svg>,
+  chevDown: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><polyline points="6 9 12 15 18 9"/></svg>,
+  img: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-10 h-10 text-stone-300"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  breath: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>,
+  flower: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6"><circle cx="12" cy="12" r="3"/><path d="M12 2 C10 5 10 7 12 9 C14 7 14 5 12 2Z"/><path d="M22 12 C19 10 17 10 15 12 C17 14 19 14 22 12Z"/><path d="M12 22 C14 19 14 17 12 15 C10 17 10 19 12 22Z"/><path d="M2 12 C5 14 7 14 9 12 C7 10 5 10 2 12Z"/><path d="M5.6 5.6 C6 9 7.5 10.5 10 9 C8.5 6.5 7 5 5.6 5.6Z"/><path d="M18.4 5.6 C17 5 15.5 6.5 14 9 C16.5 10.5 18 9 18.4 5.6Z"/><path d="M18.4 18.4 C18 15 16.5 13.5 14 15 C15.5 17.5 17 19 18.4 18.4Z"/><path d="M5.6 18.4 C7 19 8.5 17.5 10 15 C7.5 13.5 6 15 5.6 18.4Z"/></svg>,
+  download: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  upload: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function openGoogleImages(name) {
+  const q = encodeURIComponent(`${name} yoga pose`);
+  window.open(`https://www.google.com/search?tbm=isch&q=${q}`, '_blank', 'noopener');
+}
+function reorder(arr, from, to) {
+  const a = [...arr]; const [el] = a.splice(from, 1); a.splice(to, 0, el); return a;
+}
+
+// ─── Seed Data ────────────────────────────────────────────────────────────────
+const SEED_POSES = [
+  { name: "W-1 in 2", description: "", imageUrl: "", cues: ["Step right foot forward between the hands", "Step left foot forward between the hands", "Ground down back foot", "Feet can be heel to heel or on train tracks", "Keep a bend in the front leg", "Back leg extended can have a microbend", "Reach arms to sky or cactus arms", "Right leg takes a big step forward", "Left leg takes a big step forward"] },
+  { name: "W-1 in", description: "", imageUrl: "", cues: ["Back foot tracks forward 45°", "Press through all four corners of feet", "Spread toes", "Hip points track forward", "Virabhadrasana A", "Flexion in front knee", "Extension in the back knee or with microbend", "Microbends can help us engage and build strength", "Naval to spine", "Engage core", "Stand tall and proud", "Hands on hips, cactus or straight", "Bring palms together if you have space", "Find slight backbend here through upper back", "Engage through traps, lats in the back", "Engage through front body", "Bring everything to your midline, centre point", "Extend through elbows", "Lengthen neck and drop shoulders", "Few shoulder shrugs here to help us drop shoulders", "Drishti between the hands or to ceiling"] },
+  { name: "W-2 in 2", description: "", imageUrl: "", cues: ["Back foot parallel to the long edge of the mat", "Back foot at 90°, front foot forward", "Swivel down back foot", "Heel to heel alignment", "Keep a nice bend in front leg", "Back leg extended", "Press through outer blade back foot"] },
+  { name: "W-2 in", description: "", imageUrl: "", cues: ["Pull up through back thigh", "Draw everything into your midline, core to engage", "Arms spread wide", "What is the back arm doing in space — level with front", "Hips pointing towards side of the room", "Can you sink a little deeper", "Drishti over front finger"] },
+  { name: "Reverse Warrior in 2", description: "", imageUrl: "", cues: [] },
+  { name: "Reverse Warrior in", description: "", imageUrl: "", cues: [] },
+  { name: "W-3 in 2", description: "", imageUrl: "", cues: [] },
+  { name: "W-3 in 2 (alt)", description: "", imageUrl: "", cues: [] },
+  { name: "W-3 in", description: "", imageUrl: "", cues: [] },
+  { name: "Tadasana in 2", description: "", imageUrl: "", cues: ["Stand tall"] },
+  { name: "Tadasana in", description: "", imageUrl: "", cues: ["Experiment with shifting weight to different parts of the feet", "Proud head", "Where is back of head in relation to tailbone", "Place hand on top of head, press head into hand and hand into head"] },
+  { name: "Urdhva Hastasana in 2", description: "", imageUrl: "", cues: ["Reach up", "Prayer to sky", "Lift up", "Come to stand as you reach arms to sky"] },
+  { name: "Urdhva Hastasana in", description: "", imageUrl: "", cues: ["Sternum to sky", "Gaze to sky", "Stretch front body", "Gentle arch in upper back", "Extending through front body", "Stretch belly and side body and neck", "Press through feet", "Draw thighs together", "Lift your gaze"] },
+  { name: "Ardha Uttanasana in 2", description: "", imageUrl: "", cues: ["Halfway lift", "Gaze to top of mat", "Lengthen spine"] },
+  { name: "Ardha Uttanasana in", description: "", imageUrl: "", cues: ["Broaden collarbones", "Shoulders away from ears", "Keep length in spine", "Hands flat to mat or shins", "Look ahead", "Find length in the spine"] },
+  { name: "Uttanasana in 2", description: "", imageUrl: "", cues: ["Pour the body over the legs", "Hinge at the hips", "Crown of head to floor", "Release", "Dive down with control", "Forward fold", "Belly to thigh"] },
+  { name: "Uttanasana in", description: "", imageUrl: "", cues: ["Gaze between legs", "Hollow belly", "Tailbone to sky", "Engage mulabandha"] },
+  { name: "Step/Jump back in 2", description: "", imageUrl: "", cues: ["Step or jump back"] },
+  { name: "Plank in 2", description: "", imageUrl: "", cues: [] },
+  { name: "Plank in", description: "", imageUrl: "", cues: [] },
+  { name: "Knees Chest Chin in 2", description: "", imageUrl: "", cues: ["Lower in one line", "Draw in belly button"] },
+  { name: "Knees Chest Chin in", description: "", imageUrl: "", cues: [] },
+  { name: "Chaturanga in 2", description: "", imageUrl: "", cues: ["Lower down", "Flow through", "From plank shift weight forward", "Flex at elbows, keep close to body as you lower", "Shift forward then lower"] },
+  { name: "Chaturanga in", description: "", imageUrl: "", cues: ["Lower with control", "Back neck long, gaze to floor or just ahead", "Chin slightly tucked", "Shoulders no lower than elbows", "Stay up higher than you think"] },
+  { name: "Cobra in 2", description: "", imageUrl: "", cues: [] },
+  { name: "Cobra in", description: "", imageUrl: "", cues: ["Length not height", "Draw in navel", "No weight in hands"] },
+  { name: "Urdhva Mukha Svanasana in 2", description: "", imageUrl: "", cues: ["Upward facing dog", "Push through and find an arch in back", "Peel up", "Find a backbend"] },
+  { name: "Urdhva Mukha Svanasana in", description: "", imageUrl: "", cues: ["Open heart to sky", "Open through chest and shoulders", "Engage front body to open back body", "Squeeze abdomen", "Open through chest", "Draw shoulders down and back"] },
+  { name: "Adho Mukha Svanasana in 2", description: "", imageUrl: "", cues: ["Downward facing dog", "Roll through the spine", "Thighs press up and back", "Press back, roll over toes"] },
+  { name: "Adho Mukha Svanasana in", description: "", imageUrl: "", cues: ["Drishti to navel", "Upside down V", "Bend in the knees", "Heels trying to reach floor", "External rotation in shoulders", "Inside elbows towards front of room", "Rip mat apart with hands and feet", "Push into finger pads and knuckles", "Hips high"] },
+  { name: "Step/Jump forward in 2", description: "", imageUrl: "", cues: ["After your inhale move forward", "Travel to front of mat", "Step or jump"] },
+  { name: "Utkatasana in 2", description: "", imageUrl: "", cues: ["Chair pose", "Sit back on your imaginary chair", "Hips lower", "Sit bones to back of room", "Bend both knees"] },
+  { name: "Utkatasana in", description: "", imageUrl: "", cues: ["Feet together or hip width", "See your toes", "Arms raise up or to prayer at heart centre", "Draw in abdomen", "Feel the burn"] },
+  { name: "Prasarita in", description: "", imageUrl: "", cues: ["Lift up through sit bones", "Hollow the belly"] },
+  { name: "Prasarita into", description: "", imageUrl: "", cues: [] },
+];
+
+// Items with type:'poseName' are resolved to pose refIds at seed time.
+// Items not found in the library are silently dropped.
+const SEED_CLASS = {
+  name: "Final Assessment – Earth",
+  items: [
+    { type: 'section', name: 'Settling In' },
+    // Constructive rest — not in library
+
+    { type: 'section', name: 'Warm Up' },
+    // Thread needle flow, cat/cow, sukhasana — not in library
+    // Warm up sun sal flows 1–3 (same sequence repeated):
+    { type: 'poseName', name: 'Adho Mukha Svanasana in' },
+    { type: 'poseName', name: 'Tadasana in' },
+    { type: 'poseName', name: 'Urdhva Hastasana in' },
+    { type: 'poseName', name: 'Uttanasana in' },
+    { type: 'poseName', name: 'Ardha Uttanasana in' },
+    { type: 'poseName', name: 'Adho Mukha Svanasana in' },
+    { type: 'poseName', name: 'Plank in' },
+    { type: 'poseName', name: 'Knees Chest Chin in' },
+    { type: 'poseName', name: 'Cobra in' },
+    { type: 'poseName', name: 'Adho Mukha Svanasana in' },
+
+    { type: 'section', name: 'Sun Salutations' },
+    // Sun Sal A × 3, Sun Sal B × 3 — pose details not listed in spreadsheet
+
+    { type: 'section', name: 'Standing Sequence' },
+    // Warrior flow (right then left):
+    { type: 'poseName', name: 'Adho Mukha Svanasana in' },
+    { type: 'poseName', name: 'W-1 in' },
+    { type: 'poseName', name: 'W-2 in' },
+    { type: 'poseName', name: 'Reverse Warrior in' },
+    // Side angle — not in library
+    { type: 'poseName', name: 'W-2 in' },
+    { type: 'poseName', name: 'Reverse Warrior in' },
+    // Triangle, Easy twist — not in library
+    { type: 'poseName', name: 'W-3 in 2' },
+    // High lunge, Revolved side angle, Side plank, Locus — not in library
+    { type: 'poseName', name: 'Plank in' },
+    { type: 'poseName', name: 'Adho Mukha Svanasana in' },
+    // Front mat standing sequence:
+    { type: 'poseName', name: 'Ardha Uttanasana in' },
+    { type: 'poseName', name: 'Uttanasana in' },
+    // Tree pose, Pyramid pose — not in library
+    { type: 'poseName', name: 'W-3 in 2' },
+    // Half splits, Revolved side angle — not in library
+    { type: 'poseName', name: 'Prasarita in' },
+    { type: 'poseName', name: 'Adho Mukha Svanasana in' },
+
+    { type: 'section', name: 'Cool Down' },
+    // Bridge, seated sequence, supine twist, savasana — not in library
+  ],
+};
+
+// ─── Common Components ───────────────────────────────────────────────────────
+function Btn({ children, variant='primary', size='sm', onClick, type='button', disabled, className='' }) {
+  const base = 'inline-flex items-center gap-1.5 font-medium rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed';
+  const sizes = { xs:'px-2 py-1 text-xs', sm:'px-3 py-1.5 text-sm', md:'px-4 py-2 text-sm', lg:'px-5 py-2.5 text-base' };
+  const variants = {
+    primary: 'bg-sage-600 hover:bg-sage-700 text-white shadow-sm',
+    secondary: 'bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 shadow-sm',
+    ghost: 'hover:bg-stone-100 text-stone-600',
+    danger: 'bg-red-500 hover:bg-red-600 text-white shadow-sm',
+    terra: 'bg-terra-500 hover:bg-terra-600 text-white shadow-sm',
+  };
+  return <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}>{children}</button>;
+}
+
+function Modal({ title, onClose, children, wide, full }) {
+  useEffect(() => {
+    const fn = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', fn);
+    return () => document.removeEventListener('keydown', fn);
+  }, [onClose]);
+  const w = full ? 'w-[95vw] h-[92vh]' : wide ? 'w-[90vw] max-w-5xl max-h-[90vh]' : 'w-full max-w-lg max-h-[90vh]';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm fade-in" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={`bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden ${w}`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 shrink-0">
+          <h2 className="font-display text-xl text-stone-800">{title}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-colors">{Icon.x}</button>
+        </div>
+        <div className="flex-1 overflow-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({ message, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+        <p className="text-stone-700 mb-5">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <Btn variant="secondary" onClick={onCancel}>Cancel</Btn>
+          <Btn variant="danger" onClick={onConfirm}>Delete</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PoseImg({ src, alt, className='w-full h-full object-cover' }) {
+  const [err, setErr] = useState(false);
+  useEffect(() => { setErr(false); }, [src]);
+  if (!src || err) return <div className="w-full h-full flex items-center justify-center bg-sage-50">{Icon.img}</div>;
+  return <img src={src} alt={alt} className={className} onError={() => setErr(true)} />;
+}
+
+function CueList({ cues, onChange }) {
+  const [draft, setDraft] = useState('');
+  const add = () => { const v = draft.trim(); if (v) { onChange([...cues, v]); setDraft(''); } };
+  return (
+    <div className="space-y-1.5">
+      {cues.map((c, i) => (
+        <div key={i} className="flex items-center gap-2 group">
+          <span className="w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0 mt-0.5" />
+          <input
+            value={c}
+            onChange={(e) => { const a=[...cues]; a[i]=e.target.value; onChange(a); }}
+            className="flex-1 text-sm bg-transparent border-b border-transparent focus:border-sage-300 py-0.5 text-stone-700 transition-colors"
+          />
+          <button onClick={() => onChange(cues.filter((_,j)=>j!==i))} className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-400 transition-all p-0.5 rounded">{Icon.x}</button>
+        </div>
+      ))}
+      <div className="flex gap-2 mt-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
+          placeholder="Add cue and press Enter…"
+          className="flex-1 text-sm border border-stone-200 rounded-lg px-3 py-1.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all"
+        />
+        <Btn variant="secondary" size="xs" onClick={add}>{Icon.plus}</Btn>
+      </div>
+    </div>
+  );
+}
+
+function BreathToggle({ value, onChange }) {
+  const opts = [['in','In breath'],['out','Out breath'],['','None']];
+  return (
+    <div className="flex gap-1">
+      {opts.map(([v,label]) => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${value===v ? 'bg-terra-500 text-white shadow-sm' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Drag-reorder hook ────────────────────────────────────────────────────────
+function useDragSort(items, setItems) {
+  const dragIdx = useRef(null);
+  const onDragStart = useCallback((i) => { dragIdx.current = i; }, []);
+  const onDrop = useCallback((i) => {
+    if (dragIdx.current !== null && dragIdx.current !== i) {
+      setItems(reorder(items, dragIdx.current, i));
+    }
+    dragIdx.current = null;
+  }, [items, setItems]);
+  return { onDragStart, onDrop };
+}
+
+// ─── Pose Form Modal ──────────────────────────────────────────────────────────
+function PoseFormModal({ pose, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: pose?.name || '',
+    description: pose?.description || '',
+    imageUrl: pose?.imageUrl || '',
+    isSided: pose?.isSided || false,
+    cues: pose?.cues ? [...pose.cues] : [],
+  });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const save = () => {
+    if (!form.name.trim()) return;
+    onSave({ ...pose, ...form, id: pose?.id || uid() });
+  };
+  return (
+    <Modal title={pose ? 'Edit Pose' : 'Add New Pose'} onClose={onClose}>
+      <div className="p-6 space-y-5">
+        <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">Pose Name *</label>
+          <input value={form.name} onChange={(e)=>set('name',e.target.value)}
+            className="w-full border border-stone-200 rounded-xl px-4 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all text-stone-800 font-medium"
+            placeholder="e.g. Downward Facing Dog" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">Description</label>
+          <textarea value={form.description} onChange={(e)=>set('description',e.target.value)} rows={2}
+            className="w-full border border-stone-200 rounded-xl px-4 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all text-stone-600 resize-none"
+            placeholder="Brief description of the pose…" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">Image</label>
+          <div className="flex gap-2 mb-2">
+            <input value={form.imageUrl} onChange={(e)=>set('imageUrl',e.target.value)}
+              className="flex-1 border border-stone-200 rounded-xl px-4 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all text-sm"
+              placeholder="Paste image URL here…" />
+            <Btn variant="secondary" size="sm" onClick={()=>openGoogleImages(form.name||'yoga')}>
+              {Icon.search} Google Images ↗
+            </Btn>
+          </div>
+          {form.imageUrl && (
+            <div className="h-32 w-32 rounded-xl overflow-hidden border border-stone-200">
+              <PoseImg src={form.imageUrl} alt="preview" />
+            </div>
+          )}
+        </div>
+        <div>
+          <button type="button" onClick={()=>set('isSided',!form.isSided)}
+            className="flex items-center gap-3 w-full text-left group">
+            <div className={`w-10 h-5.5 rounded-full relative transition-colors flex items-center px-0.5 ${form.isSided ? 'bg-sage-500' : 'bg-stone-200'}`}
+              style={{height:'22px',width:'40px'}}>
+              <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${form.isSided ? 'translate-x-[18px]' : 'translate-x-0'}`} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stone-700">One-sided pose</p>
+              <p className="text-xs text-stone-400">Requires a left or right side when sequencing</p>
+            </div>
+          </button>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Verbal Cues</label>
+          <CueList cues={form.cues} onChange={(v)=>set('cues',v)} />
+        </div>
+      </div>
+      <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 shrink-0">
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn variant="primary" onClick={save} disabled={!form.name.trim()}>Save Pose</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Pose Detail Drawer ───────────────────────────────────────────────────────
+function PoseDetailDrawer({ pose, onEdit, onClose }) {
+  if (!pose) return null;
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end fade-in" onClick={(e)=>e.target===e.currentTarget&&onClose()}>
+      <div className="bg-white w-80 h-full shadow-2xl flex flex-col overflow-hidden border-l border-stone-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+          <h3 className="font-display text-lg text-stone-800 truncate">{pose.name}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400">{Icon.x}</button>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <div className="h-56 bg-sage-50">
+            <PoseImg src={pose.imageUrl} alt={pose.name} />
+          </div>
+          {pose.description && <p className="px-5 pt-4 text-sm text-stone-600 leading-relaxed">{pose.description}</p>}
+          {pose.cues.length > 0 && (
+            <div className="px-5 pt-4 pb-6">
+              <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Verbal Cues</p>
+              <ul className="space-y-2">
+                {pose.cues.map((c,i) => (
+                  <li key={i} className="flex gap-2 text-sm text-stone-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sage-400 shrink-0 mt-1.5" />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t border-stone-100">
+          <Btn variant="primary" size="sm" className="w-full justify-center" onClick={onEdit}>{Icon.edit} Edit Pose</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Poses Page ───────────────────────────────────────────────────────────────
+function PosesPage() {
+  const { poses, addPose, updatePose, deletePose } = useApp();
+  const [q, setQ] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [delId, setDelId] = useState(null);
+
+  const filtered = useMemo(() =>
+    poses.filter(p => p.name.toLowerCase().includes(q.toLowerCase())),
+    [poses, q]
+  );
+
+  const handleSave = (pose) => {
+    if (editing) updatePose(pose); else addPose(pose);
+    setShowForm(false); setEditing(null);
+  };
+  const handleDelete = (id) => {
+    deletePose(id); setDelId(null);
+    if (detail?.id === id) setDetail(null);
+  };
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative flex-1 max-w-xs">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
+          <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search poses…"
+            className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-xl text-sm focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all" />
+        </div>
+        <Btn variant="primary" onClick={()=>{ setEditing(null); setShowForm(true); }}>{Icon.plus} New Pose</Btn>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 text-stone-300">{Icon.img}</div>
+          <p className="font-display text-xl text-stone-400 mb-2">{q ? 'No poses found' : 'No poses yet'}</p>
+          <p className="text-sm text-stone-400 mb-5">{q ? 'Try a different search' : 'Add your first pose to get started'}</p>
+          {!q && <Btn variant="primary" onClick={()=>setShowForm(true)}>{Icon.plus} Add Pose</Btn>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {filtered.map(p => (
+            <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden hover:shadow-md hover:border-sage-200 transition-all group cursor-pointer"
+              onClick={()=>setDetail(p)}>
+              <div className="aspect-[4/3] bg-sage-50">
+                <PoseImg src={p.imageUrl} alt={p.name} />
+              </div>
+              <div className="p-3">
+                <div className="flex items-start gap-1.5 mb-1">
+                  <p className="font-display text-sm font-semibold text-stone-800 truncate flex-1">{p.name}</p>
+                  {p.isSided && <span className="shrink-0 text-xs bg-sage-100 text-sage-700 px-1.5 py-0.5 rounded font-medium">L/R</span>}
+                </div>
+                {p.cues.slice(0,2).map((c,i)=>(
+                  <p key={i} className="text-xs text-stone-500 truncate leading-relaxed">{c}</p>
+                ))}
+                {p.cues.length > 2 && <p className="text-xs text-stone-400">+{p.cues.length-2} more</p>}
+              </div>
+              <div className="px-3 pb-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e)=>e.stopPropagation()}>
+                <Btn variant="ghost" size="xs" onClick={()=>{ setEditing(p); setShowForm(true); }}>{Icon.edit}</Btn>
+                <Btn variant="ghost" size="xs" onClick={()=>setDelId(p.id)} className="hover:text-red-400">{Icon.trash}</Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(showForm || editing) && (
+        <PoseFormModal pose={editing} onSave={handleSave} onClose={()=>{ setShowForm(false); setEditing(null); }} />
+      )}
+      {detail && !showForm && !editing && (
+        <PoseDetailDrawer pose={detail} onClose={()=>setDetail(null)} onEdit={()=>{ setEditing(detail); setShowForm(true); setDetail(null); }} />
+      )}
+      {delId && (
+        <ConfirmDialog message="Delete this pose? It will be removed from any sequences that use it."
+          onConfirm={()=>handleDelete(delId)} onCancel={()=>setDelId(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── Side Toggle ─────────────────────────────────────────────────────────────
+function SideToggle({ value, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">Side:</span>
+      <div className="flex gap-1">
+        {[['right','Right ▶'],['left','◀ Left']].map(([v, label]) => (
+          <button key={v} type="button" onClick={() => onChange(v === value ? '' : v)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+              value === v ? 'bg-sage-600 text-white shadow-sm' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {!value && <span className="text-xs text-amber-500 font-medium">— set a side</span>}
+    </div>
+  );
+}
+
+// ─── Cue Selector (class mode — pick up to 3 from pose library) ───────────────
+function CueSelector({ selected, allCues, onChange }) {
+  const MAX = 3;
+  const toggle = (cue) => {
+    if (selected.includes(cue)) onChange(selected.filter(c => c !== cue));
+    else if (selected.length < MAX) onChange([...selected, cue]);
+  };
+  if (allCues.length === 0) return <p className="text-xs text-stone-400 italic">No cues in pose library — add some via Edit Pose.</p>;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-stone-400 mb-2">Choose up to 3 cues to show in this class <span className="font-medium text-stone-500">({selected.length}/{MAX} selected)</span></p>
+      {allCues.map((cue, i) => {
+        const on = selected.includes(cue);
+        const disabled = !on && selected.length >= MAX;
+        return (
+          <button key={i} type="button" onClick={() => toggle(cue)} disabled={disabled}
+            className={`w-full text-left text-xs px-3 py-2 rounded-lg transition-all flex items-start gap-2.5 border ${
+              on ? 'bg-sage-50 border-sage-300 text-sage-800' :
+              disabled ? 'border-stone-100 text-stone-300 bg-stone-50 cursor-not-allowed' :
+              'border-stone-200 text-stone-600 bg-white hover:border-sage-200 hover:bg-sage-50'
+            }`}>
+            <span className={`mt-0.5 w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+              on ? 'bg-sage-500 border-sage-500' : 'border-stone-300'
+            }`}>
+              {on && <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="1.8" className="w-2.5 h-2.5"><polyline points="1.5,5 4,7.5 8.5,2"/></svg>}
+            </span>
+            <span className="leading-relaxed">{cue}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Sequence Item Row (shared) ───────────────────────────────────────────────
+function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart, onDrop, isLast, classMode }) {
+  const [open, setOpen] = useState(!classMode);
+  if (!pose) return null;
+  const sideLabel = item.side === 'right' ? 'Right' : item.side === 'left' ? 'Left' : null;
+  return (
+    <div draggable onDragStart={()=>onDragStart(index)} onDragOver={(e)=>{e.preventDefault();}} onDrop={()=>onDrop(index)}
+      className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-3 px-3 py-2.5 bg-sage-50/60">
+        <span className="cursor-grab text-stone-300 hover:text-stone-500" title="Drag to reorder">{Icon.drag}</span>
+        <div className="w-8 h-8 rounded-lg overflow-hidden bg-sage-100 shrink-0">
+          <PoseImg src={pose.imageUrl} alt={pose.name} className="w-full h-full object-cover" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-medium text-sm text-stone-800 truncate block">{pose.name}</span>
+          {sideLabel && <span className="text-xs text-sage-600 font-medium">{sideLabel} side</span>}
+          {pose.isSided && !sideLabel && <span className="text-xs text-amber-500 font-medium">Side not set</span>}
+        </div>
+        <span className="text-xs text-stone-400 bg-white px-2 py-0.5 rounded-full border border-stone-100 shrink-0">{index+1}</span>
+        <button onClick={()=>setOpen(!open)} className="text-stone-400 hover:text-stone-600 transition-colors">{Icon.chevDown}</button>
+        <button onClick={onRemove} className="text-stone-300 hover:text-red-400 transition-colors ml-1">{Icon.x}</button>
+      </div>
+
+      {open && (
+        <div className="px-4 py-3 space-y-3 border-t border-stone-100">
+          {pose.isSided && (
+            <SideToggle value={item.side || ''} onChange={(v) => onChange({...item, side: v})} />
+          )}
+          <div>
+            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">
+              {classMode ? 'Class cues' : 'Cues for this pose'}
+            </p>
+            {classMode
+              ? <CueSelector selected={item.cues} allCues={pose.cues} onChange={(v) => onChange({...item, cues: v})} />
+              : <CueList cues={item.cues} onChange={(v)=>onChange({...item, cues:v})} />
+            }
+          </div>
+        </div>
+      )}
+
+      {!isLast && (
+        <div className="mx-4 py-3 border-t border-dashed border-stone-200 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-terra-100 flex items-center justify-center shrink-0">
+              <div className="w-1.5 h-1.5 rounded-full bg-terra-400" />
+            </div>
+            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Transition</p>
+          </div>
+          <input value={item.transitionCue} onChange={(e)=>onChange({...item,transitionCue:e.target.value})}
+            placeholder="Describe how to move to next pose…"
+            className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:border-terra-300 focus:ring-2 focus:ring-terra-50 transition-all" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-stone-400">On:</span>
+            <BreathToggle value={item.transitionBreath} onChange={(v)=>onChange({...item,transitionBreath:v})} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sequence Viewer ──────────────────────────────────────────────────────────
+function SequenceViewer({ title, steps, onClose }) {
+  // steps: [{pose, cues, transitionCue, transitionBreath, groupName?}]
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const fn = (e) => {
+      if (e.key === 'ArrowLeft') setIdx(i => Math.max(0, i-1));
+      if (e.key === 'ArrowRight') setIdx(i => Math.min(steps.length-1, i+1));
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', fn);
+    return () => document.removeEventListener('keydown', fn);
+  }, [steps.length, onClose]);
+  const step = steps[idx];
+  if (!step) return null;
+  const breathLabel = step.transitionBreath === 'in' ? 'Inhale' : step.transitionBreath === 'out' ? 'Exhale' : '';
+
+  // Dot nav: group consecutive section+poses for context
+  const sectionOfIdx = (() => {
+    let name = null;
+    for (let i = 0; i <= idx; i++) { if (steps[i].isSection) name = steps[i].sectionName; }
+    return name;
+  })();
+
+  if (step.isSection) {
+    return (
+      <div className="fixed inset-0 z-50 bg-stone-900/95 flex flex-col items-center justify-center fade-in">
+        <div className="absolute top-4 right-4">
+          <button onClick={onClose} className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all">{Icon.x}</button>
+        </div>
+        <p className="font-display text-stone-500 text-xs mb-6 uppercase tracking-widest">{title}</p>
+        <div className="w-16 h-0.5 bg-sage-700 mb-8 rounded-full" />
+        <h2 className="font-display text-5xl text-white mb-4 text-center px-8">{step.sectionName}</h2>
+        <div className="w-16 h-0.5 bg-sage-700 mt-4 mb-10 rounded-full" />
+        <button onClick={()=>setIdx(i=>Math.min(steps.length-1,i+1))} disabled={idx===steps.length-1}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-sage-600 hover:bg-sage-700 text-white transition-all text-sm font-medium shadow-lg">
+          Begin {Icon.chevRight}
+        </button>
+        <p className="text-stone-600 text-xs mt-8">← → arrow keys · Esc to close</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-stone-900/95 flex flex-col fade-in">
+      {/* Fixed top */}
+      <div className="flex-none flex flex-col items-center pt-5 pb-3 px-12 relative">
+        <button onClick={onClose} className="absolute right-4 top-4 p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all">{Icon.x}</button>
+        <p className="font-display text-stone-400 text-sm uppercase tracking-widest mb-1">{title}</p>
+        <div className="flex items-center gap-2">
+          {sectionOfIdx && <span className="px-2.5 py-0.5 bg-stone-700 text-stone-300 text-xs rounded-full">{sectionOfIdx}</span>}
+          <p className="text-stone-500 text-xs">Step {idx+1} of {steps.length}</p>
+        </div>
+      </div>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto flex flex-col items-center px-6 pt-4 pb-4 min-h-0">
+        {step.groupName && (
+          <span className="mb-3 px-3 py-1 bg-sage-800/40 text-sage-300 text-xs rounded-full border border-sage-700/40">{step.groupName}</span>
+        )}
+        <div className="w-56 h-56 rounded-3xl overflow-hidden bg-stone-800 shadow-2xl mb-5 shrink-0">
+          <PoseImg src={step.pose.imageUrl} alt={step.pose.name} />
+        </div>
+        <h2 className="font-display text-3xl text-white mb-1 text-center">{step.pose.name}</h2>
+        {step.side
+          ? <span className={`mb-4 px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wider ${step.side==='right' ? 'bg-sage-700/60 text-sage-200' : 'bg-terra-800/60 text-terra-200'}`}>
+              {step.side === 'right' ? '▶ Right side' : '◀ Left side'}
+            </span>
+          : <div className="mb-4" />
+        }
+        {step.cues.length > 0 && (
+          <ul className="mb-4 space-y-2 text-center w-full max-w-xs">
+            {step.cues.map((c,i)=>(
+              <li key={i} className="text-stone-300 text-sm flex items-start gap-2 justify-center">
+                <span className="w-1 h-1 rounded-full bg-sage-400 shrink-0 mt-1.5" />{c}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {/* Fixed bottom — transition + nav */}
+      <div className="flex-none flex flex-col items-center gap-3 pt-3 pb-5 border-t border-white/5">
+        {/* Transition block — always rendered to hold space; visible only when content exists */}
+        <div className={`w-full max-w-xs mx-auto px-5 py-3 rounded-2xl text-center transition-all ${
+          idx < steps.length-1 && (step.transitionCue || step.transitionBreath)
+            ? 'bg-terra-900/40 border border-terra-700/30'
+            : 'opacity-0 pointer-events-none'
+        }`} style={{minHeight:'52px'}}>
+          {breathLabel && <p className="text-terra-300 text-xs font-medium uppercase tracking-widest mb-1">↓ {breathLabel}</p>}
+          {step.transitionCue && <p className="text-terra-200 text-sm">{step.transitionCue}</p>}
+        </div>
+        <div className="flex items-center gap-4">
+          <button onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 transition-all text-sm font-medium w-24 justify-center">
+            {Icon.chevLeft} Prev
+          </button>
+          <div className="flex gap-1 max-w-[200px] flex-wrap justify-center">
+            {steps.map((s,i)=>(
+              <button key={i} onClick={()=>setIdx(i)}
+                className={`transition-all rounded-full ${s.isSection ? 'w-3 h-1.5 bg-stone-500 hover:bg-stone-400' : i===idx ? 'w-4 h-2 bg-sage-400' : 'w-2 h-2 bg-stone-600 hover:bg-stone-500'}`} />
+            ))}
+          </div>
+          <button onClick={()=>setIdx(i=>Math.min(steps.length-1,i+1))} disabled={idx===steps.length-1}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 transition-all text-sm font-medium w-24 justify-center">
+            Next {Icon.chevRight}
+          </button>
+        </div>
+        <p className="text-stone-600 text-xs">← → arrow keys · Esc to close</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Vinyette Form Modal ──────────────────────────────────────────────────────
+function VinyetteFormModal({ vinyette, onSave, onClose }) {
+  const { poses } = useApp();
+  const [name, setName] = useState(vinyette?.name || '');
+  const [items, setItems] = useState(vinyette?.items ? vinyette.items.map(i=>({...i,cues:[...i.cues]})) : []);
+  const [q, setQ] = useState('');
+  const { onDragStart, onDrop } = useDragSort(items, setItems);
+
+  const filtered = useMemo(() =>
+    poses.filter(p => p.name.toLowerCase().includes(q.toLowerCase())),
+    [poses, q]
+  );
+  const addPose = (pose) => {
+    setItems(it => [...it, { poseId: pose.id, cues: [...pose.cues], side: '', transitionCue:'', transitionBreath:'' }]);
+  };
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({ ...vinyette, id: vinyette?.id || uid(), name: name.trim(), items });
+  };
+
+  return (
+    <Modal title={vinyette ? 'Edit Vinyette' : 'New Vinyette'} onClose={onClose} wide>
+      <div className="flex flex-col h-full" style={{minHeight:'60vh'}}>
+        <div className="px-6 py-4 border-b border-stone-100">
+          <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Vinyette name…"
+            className="w-full text-lg font-display border border-stone-200 rounded-xl px-4 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all" />
+        </div>
+        <div className="flex flex-1 overflow-hidden" style={{minHeight:'400px'}}>
+          {/* Pose picker */}
+          <div className="w-56 border-r border-stone-100 flex flex-col shrink-0">
+            <div className="p-3 border-b border-stone-100">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
+                <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search…"
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:border-sage-300 focus:ring-1 focus:ring-sage-100 transition-all" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
+              {filtered.length === 0 && <p className="text-xs text-stone-400 p-2 text-center">No poses found</p>}
+              {filtered.map(p => (
+                <button key={p.id} onClick={()=>addPose(p)}
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-sage-50 text-left transition-colors group">
+                  <div className="w-8 h-8 rounded-md overflow-hidden bg-sage-100 shrink-0">
+                    <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-sm text-stone-700 truncate group-hover:text-sage-700">{p.name}</span>
+                  <span className="ml-auto text-stone-300 group-hover:text-sage-400 shrink-0">{Icon.plus}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Sequence */}
+          <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-3">
+            {items.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center text-stone-400">
+                <p className="font-display text-lg mb-1">No poses yet</p>
+                <p className="text-sm">Click poses on the left to add them</p>
+              </div>
+            )}
+            {items.map((item, i) => {
+              const pose = poses.find(p=>p.id===item.poseId);
+              return (
+                <SeqItemRow key={i} item={item} pose={pose} index={i} total={items.length}
+                  isLast={i===items.length-1}
+                  onChange={(v)=>setItems(it=>it.map((x,j)=>j===i?v:x))}
+                  onRemove={()=>setItems(it=>it.filter((_,j)=>j!==i))}
+                  onDragStart={onDragStart} onDrop={onDrop} />
+              );
+            })}
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3">
+          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+          <Btn variant="primary" onClick={save} disabled={!name.trim()}>Save Vinyette</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Vinyettes Page ───────────────────────────────────────────────────────────
+function VinyettesPage() {
+  const { poses, vinyettes, addVinyette, updateVinyette, deleteVinyette } = useApp();
+  const [q, setQ] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [delId, setDelId] = useState(null);
+
+  const filtered = useMemo(() =>
+    vinyettes.filter(v => v.name.toLowerCase().includes(q.toLowerCase())),
+    [vinyettes, q]
+  );
+  const handleSave = (v) => {
+    if (editing) updateVinyette(v); else addVinyette(v);
+    setShowForm(false); setEditing(null);
+  };
+  const viewSteps = (v) => {
+    const steps = v.items.map((item,i) => ({
+      pose: poses.find(p=>p.id===item.poseId),
+      cues: item.cues,
+      side: item.side||'',
+      transitionCue: item.transitionCue,
+      transitionBreath: item.transitionBreath,
+    })).filter(s=>s.pose);
+    setViewing({ title: v.name, steps });
+  };
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative flex-1 max-w-xs">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
+          <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search vinyettes…"
+            className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-xl text-sm focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all" />
+        </div>
+        <Btn variant="primary" onClick={()=>{ setEditing(null); setShowForm(true); }}>{Icon.plus} New Vinyette</Btn>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="font-display text-xl text-stone-400 mb-2">{q ? 'No vinyettes found' : 'No vinyettes yet'}</p>
+          <p className="text-sm text-stone-400 mb-5">{q ? 'Try a different search' : 'Build a mini-sequence to get started'}</p>
+          {!q && <Btn variant="primary" onClick={()=>setShowForm(true)}>{Icon.plus} New Vinyette</Btn>}
+        </div>
+      ) : (
+        <div className="space-y-3 max-w-2xl">
+          {filtered.map(v => {
+            const posePreviews = v.items.slice(0,4).map(i=>poses.find(p=>p.id===i.poseId)).filter(Boolean);
+            return (
+              <div key={v.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all p-4 flex items-center gap-4">
+                <div className="flex gap-1 shrink-0">
+                  {posePreviews.map((p,i)=>(
+                    <div key={i} className="w-10 h-10 rounded-lg overflow-hidden bg-sage-100 border-2 border-white -ml-1 first:ml-0 shadow-sm">
+                      <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                  {v.items.length > 4 && (
+                    <div className="w-10 h-10 rounded-lg bg-stone-100 border-2 border-white -ml-1 flex items-center justify-center shadow-sm">
+                      <span className="text-xs text-stone-500 font-medium">+{v.items.length-4}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-display font-semibold text-stone-800">{v.name}</p>
+                  <p className="text-xs text-stone-400">{v.items.length} pose{v.items.length!==1?'s':''}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Btn variant="secondary" size="xs" onClick={()=>viewSteps(v)}>{Icon.eye} View</Btn>
+                  <Btn variant="ghost" size="xs" onClick={()=>{ setEditing(v); setShowForm(true); }}>{Icon.edit}</Btn>
+                  <Btn variant="ghost" size="xs" onClick={()=>setDelId(v.id)} className="hover:text-red-400">{Icon.trash}</Btn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(showForm || editing) && (
+        <VinyetteFormModal vinyette={editing} onSave={handleSave} onClose={()=>{ setShowForm(false); setEditing(null); }} />
+      )}
+      {viewing && <SequenceViewer title={viewing.title} steps={viewing.steps} onClose={()=>setViewing(null)} />}
+      {delId && (
+        <ConfirmDialog message="Delete this vinyette? It will be removed from any full classes that use it."
+          onConfirm={()=>{ deleteVinyette(delId); setDelId(null); }} onCancel={()=>setDelId(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── Class Form Modal ─────────────────────────────────────────────────────────
+function ClassFormModal({ cls, onSave, onClose }) {
+  const { poses, vinyettes, addVinyette: saveVinyette } = useApp();
+  const [name, setName] = useState(cls?.name || '');
+  const [items, setItems] = useState(cls?.items ? cls.items.map(i=>({...i, cues: i.cues ? [...i.cues] : undefined})) : []);
+  const [q, setQ] = useState('');
+  const [pickerTab, setPickerTab] = useState('poses');
+  const [expandedVinyettes, setExpandedVinyettes] = useState({});
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [newSectionName, setNewSectionName] = useState('');
+  const [savingSection, setSavingSection] = useState(null); // {idx, name}
+  const { onDragStart, onDrop } = useDragSort(items, setItems);
+
+  // For each item index, find its parent section index (null if no section above it)
+  const sectionOf = useMemo(() => {
+    const map = {};
+    let cur = null;
+    items.forEach((item, i) => { if (item.type === 'section') { cur = i; map[i] = null; } else { map[i] = cur; } });
+    return map;
+  }, [items]);
+
+  const filteredPoses = useMemo(()=>poses.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[poses,q]);
+  const filteredVinyettes = useMemo(()=>vinyettes.filter(v=>v.name.toLowerCase().includes(q.toLowerCase())),[vinyettes,q]);
+
+  const addPose = (p) => setItems(it=>[...it, {type:'pose', refId:p.id, cues:p.cues.slice(0,2), side:'', transitionCue:'', transitionBreath:''}]);
+  const addVinyette = (v) => setItems(it=>[...it, {type:'vinyette', refId:v.id, cues:[], side:'', transitionCue:'', transitionBreath:''}]);
+  const addSection = () => {
+    const n = newSectionName.trim() || 'New Section';
+    setItems(it=>[...it, {type:'section', name:n}]);
+    setNewSectionName('');
+  };
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({ ...cls, id: cls?.id || uid(), name: name.trim(), items });
+  };
+
+  const toggleVinyetteExpand = (i) => setExpandedVinyettes(e=>({...e,[i]:!e[i]}));
+
+  // Collect items belonging to a section (between this section header and the next)
+  const getSectionItems = (sectionIdx) => {
+    const result = [];
+    for (let i = sectionIdx + 1; i < items.length && items[i].type !== 'section'; i++) {
+      result.push(items[i]);
+    }
+    return result;
+  };
+
+  const confirmSaveAsVinyette = () => {
+    if (!savingSection) return;
+    const vName = savingSection.name.trim();
+    if (!vName) return;
+    const sectionItems = getSectionItems(savingSection.idx);
+    const vinyetteItems = sectionItems
+      .filter(it => it.type === 'pose')
+      .map(it => ({ poseId: it.refId, cues: [...it.cues], side: it.side||'', transitionCue: it.transitionCue, transitionBreath: it.transitionBreath }));
+    if (vinyetteItems.length === 0) { setSavingSection(null); return; }
+    saveVinyette({ id: uid(), name: vName, items: vinyetteItems });
+    setSavingSection(null);
+  };
+
+  return (
+    <Modal title={cls ? 'Edit Class' : 'New Full Class'} onClose={onClose} wide>
+      <div className="flex flex-col h-full" style={{minHeight:'60vh'}}>
+        <div className="px-6 py-4 border-b border-stone-100">
+          <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Class name…"
+            className="w-full text-lg font-display border border-stone-200 rounded-xl px-4 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all" />
+        </div>
+        <div className="flex flex-1 overflow-hidden" style={{minHeight:'400px'}}>
+          {/* Picker */}
+          <div className="w-60 border-r border-stone-100 flex flex-col shrink-0">
+            <div className="flex border-b border-stone-100">
+              {['poses','vinyettes'].map(t=>(
+                <button key={t} onClick={()=>setPickerTab(t)}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors capitalize ${pickerTab===t?'text-sage-700 border-b-2 border-sage-500':'text-stone-400 hover:text-stone-600'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="p-3 border-b border-stone-100">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
+                <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search…"
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:border-sage-300 transition-all" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
+              {pickerTab==='poses' && filteredPoses.map(p=>(
+                <button key={p.id} onClick={()=>addPose(p)}
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-sage-50 text-left transition-colors group">
+                  <div className="w-8 h-8 rounded-md overflow-hidden bg-sage-100 shrink-0"><PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /></div>
+                  <span className="text-sm text-stone-700 truncate group-hover:text-sage-700">{p.name}</span>
+                  <span className="ml-auto text-stone-300 group-hover:text-sage-400 shrink-0">{Icon.plus}</span>
+                </button>
+              ))}
+              {pickerTab==='vinyettes' && filteredVinyettes.map(v=>(
+                <button key={v.id} onClick={()=>addVinyette(v)}
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-terra-50 text-left transition-colors group">
+                  <div className="w-8 h-8 rounded-md bg-terra-100 flex items-center justify-center shrink-0 text-terra-400">{Icon.flower}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-stone-700 truncate group-hover:text-terra-700">{v.name}</p>
+                    <p className="text-xs text-stone-400">{v.items.length} poses</p>
+                  </div>
+                  <span className="ml-auto text-stone-300 group-hover:text-terra-400 shrink-0">{Icon.plus}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Sequence */}
+          <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-stone-100">
+              <input value={newSectionName} onChange={(e)=>setNewSectionName(e.target.value)}
+                onKeyDown={(e)=>e.key==='Enter'&&(e.preventDefault(),addSection())}
+                placeholder="Section name (e.g. Warm Up)…"
+                className="flex-1 text-sm border border-stone-200 rounded-lg px-3 py-1.5 focus:border-sage-300 focus:ring-1 focus:ring-sage-100 transition-all" />
+              <Btn variant="secondary" size="xs" onClick={addSection}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Section
+              </Btn>
+            </div>
+            {items.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-stone-400">
+                <p className="font-display text-lg mb-1">Empty class</p>
+                <p className="text-sm">Add poses or vinyettes from the left, or create sections to organise them</p>
+              </div>
+            )}
+            {items.map((item, i) => {
+              const isLast = i===items.length-1;
+              // Hide items that belong to a collapsed section
+              if (item.type !== 'section' && sectionOf[i] !== null && collapsedSections[sectionOf[i]]) return null;
+
+              if (item.type==='section') {
+                const isSaving = savingSection?.idx === i;
+                const isCollapsed = !!collapsedSections[i];
+                const sectionPoseCount = getSectionItems(i).filter(x=>x.type==='pose').length;
+                return (
+                  <div key={i} draggable onDragStart={()=>onDragStart(i)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(i)}
+                    className="rounded-xl overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-2 bg-stone-700 px-3 py-2.5">
+                      <span className="cursor-grab text-stone-400 hover:text-stone-200">{Icon.drag}</span>
+                      {/* collapse toggle */}
+                      <button onClick={()=>setCollapsedSections(c=>({...c,[i]:!c[i]}))}
+                        className={`text-stone-400 hover:text-stone-200 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}>
+                        {Icon.chevDown}
+                      </button>
+                      <input value={item.name}
+                        onChange={(e)=>setItems(it=>it.map((x,j)=>j===i?{...x,name:e.target.value}:x))}
+                        className="flex-1 bg-transparent text-white font-display text-sm font-semibold focus:outline-none placeholder-stone-400 min-w-0"
+                        placeholder="Section name…" />
+                      {isCollapsed && sectionPoseCount > 0 && (
+                        <span className="text-xs text-stone-400 bg-stone-600 px-2 py-0.5 rounded-full shrink-0">{sectionPoseCount} pose{sectionPoseCount!==1?'s':''}</span>
+                      )}
+                      {sectionPoseCount > 0 && !isSaving && !isCollapsed && (
+                        <button onClick={()=>setSavingSection({idx:i, name:item.name})}
+                          className="shrink-0 flex items-center gap-1 text-xs text-stone-300 hover:text-sage-300 bg-stone-600 hover:bg-stone-500 px-2 py-1 rounded-lg transition-colors">
+                          {Icon.flower} Save as vinyette
+                        </button>
+                      )}
+                      <button onClick={()=>setItems(it=>it.filter((_,j)=>j!==i))} className="text-stone-500 hover:text-red-400 transition-colors ml-1">{Icon.x}</button>
+                    </div>
+                    {isSaving && (
+                      <div className="flex items-center gap-2 bg-stone-800 px-3 py-2.5 border-t border-stone-600">
+                        <span className="text-xs text-stone-400 shrink-0">Vinyette name:</span>
+                        <input autoFocus value={savingSection.name}
+                          onChange={(e)=>setSavingSection(s=>({...s,name:e.target.value}))}
+                          onKeyDown={(e)=>{ if(e.key==='Enter') confirmSaveAsVinyette(); if(e.key==='Escape') setSavingSection(null); }}
+                          className="flex-1 bg-stone-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-sage-500 min-w-0"
+                          placeholder="Name for this vinyette…" />
+                        <button onClick={confirmSaveAsVinyette} className="shrink-0 text-xs bg-sage-600 hover:bg-sage-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Save</button>
+                        <button onClick={()=>setSavingSection(null)} className="shrink-0 text-stone-400 hover:text-white transition-colors">{Icon.x}</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (item.type==='vinyette') {
+                const v = vinyettes.find(x=>x.id===item.refId);
+                if (!v) return null;
+                const bodyOpen = !!expandedVinyettes[i];  // default closed
+                const posesOpen = expandedVinyettes[`poses_${i}`];
+                return (
+                  <div key={i} draggable onDragStart={()=>onDragStart(i)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(i)}
+                    className="bg-terra-50 rounded-xl border border-terra-200 overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer" onClick={()=>toggleVinyetteExpand(i)}>
+                      <span className="cursor-grab text-terra-300 hover:text-terra-500" onClick={e=>e.stopPropagation()}>{Icon.drag}</span>
+                      <div className="w-8 h-8 rounded-md bg-terra-100 flex items-center justify-center shrink-0 text-terra-400">{Icon.flower}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-stone-800 truncate">{v.name}</p>
+                        <p className="text-xs text-terra-500">{v.items.length} poses · Vinyette</p>
+                      </div>
+                      <span className="text-xs text-stone-400 bg-white px-2 py-0.5 rounded-full border border-stone-100">{i+1}</span>
+                      <span className={`text-terra-400 transition-transform ${bodyOpen ? '' : '-rotate-90'}`}>{Icon.chevDown}</span>
+                      <button onClick={e=>{e.stopPropagation();setItems(it=>it.filter((_,j)=>j!==i));}} className="text-stone-300 hover:text-red-400 transition-colors ml-1">{Icon.x}</button>
+                    </div>
+                    {bodyOpen && (
+                      <>
+                        <div className="px-4 pb-1 pt-2 border-t border-terra-200/60">
+                          <button onClick={()=>setExpandedVinyettes(e=>({...e,[`poses_${i}`]:!e[`poses_${i}`]}))}
+                            className="flex items-center gap-1.5 text-xs text-terra-500 hover:text-terra-700 font-medium mb-2 transition-colors">
+                            <span className={`transition-transform ${posesOpen ? '' : '-rotate-90'}`}>{Icon.chevDown}</span>
+                            {posesOpen ? 'Hide' : 'Show'} poses
+                          </button>
+                          {posesOpen && (
+                            <div className="space-y-1.5 mb-3">
+                              {v.items.map((vi,j)=>{
+                                const vp = poses.find(p=>p.id===vi.poseId);
+                                if(!vp) return null;
+                                return (
+                                  <div key={j} className="flex items-center gap-2 px-2 py-1.5 bg-white/60 rounded-lg">
+                                    <div className="w-6 h-6 rounded overflow-hidden bg-sage-100 shrink-0"><PoseImg src={vp.imageUrl} alt={vp.name} className="w-full h-full object-cover" /></div>
+                                    <span className="text-xs text-stone-600">{vp.name}</span>
+                                    {vi.side && <span className="text-xs text-terra-400 ml-auto">{vi.side}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        {!isLast && (
+                          <div className="mx-4 py-3 border-t border-dashed border-terra-200 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded-full bg-terra-100 flex items-center justify-center shrink-0"><div className="w-1.5 h-1.5 rounded-full bg-terra-400"/></div>
+                              <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Transition</p>
+                            </div>
+                            <input value={item.transitionCue} onChange={(e)=>setItems(it=>it.map((x,j)=>j===i?{...x,transitionCue:e.target.value}:x))}
+                              placeholder="Describe how to move to next segment…"
+                              className="w-full text-sm border border-terra-200 rounded-lg px-3 py-2 focus:border-terra-300 transition-all bg-white" />
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-stone-400">On:</span>
+                              <BreathToggle value={item.transitionBreath} onChange={(v)=>setItems(it=>it.map((x,j)=>j===i?{...x,transitionBreath:v}:x))} />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              }
+              // pose item
+              const pose = poses.find(p=>p.id===item.refId);
+              return (
+                <SeqItemRow key={i} item={item} pose={pose} index={i} total={items.length}
+                  isLast={isLast} classMode
+                  onChange={(v)=>setItems(it=>it.map((x,j)=>j===i?v:x))}
+                  onRemove={()=>setItems(it=>it.filter((_,j)=>j!==i))}
+                  onDragStart={onDragStart} onDrop={onDrop} />
+              );
+            })}
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3">
+          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+          <Btn variant="primary" onClick={save} disabled={!name.trim()}>Save Class</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Class Outline Modal ──────────────────────────────────────────────────────
+function ClassOutlineModal({ cls, sections, onPlay, onEdit, onClose }) {
+  const { poses, vinyettes } = useApp();
+  const [collapsed, setCollapsed] = useState({});
+  const toggle = (i) => setCollapsed(c => ({ ...c, [i]: !c[i] }));
+
+  const sectionSteps = (sectionItems) => {
+    const steps = [];
+    sectionItems.forEach((item) => {
+      if (item.type==='pose') {
+        const pose = poses.find(p=>p.id===item.refId);
+        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transitionCue:item.transitionCue, transitionBreath:item.transitionBreath });
+      } else if (item.type==='vinyette') {
+        const v = vinyettes.find(x=>x.id===item.refId);
+        if (v) v.items.forEach((vi, j) => {
+          const pose = poses.find(p=>p.id===vi.poseId);
+          if (pose) steps.push({
+            pose, cues:vi.cues, side:vi.side||'',
+            transitionCue: j<v.items.length-1 ? vi.transitionCue : item.transitionCue,
+            transitionBreath: j<v.items.length-1 ? vi.transitionBreath : item.transitionBreath,
+            groupName: v.name,
+          });
+        });
+      }
+    });
+    return steps;
+  };
+
+  const allSteps = () => {
+    const steps = [];
+    sections.forEach((sec) => {
+      if (sec.name) steps.push({ isSection: true, sectionName: sec.name });
+      steps.push(...sectionSteps(sec.items));
+    });
+    return steps;
+  };
+
+  const totalPoses = sections.reduce((n, s) => n + sectionSteps(s.items).length, 0);
+
+  return (
+    <Modal title={cls.name} onClose={onClose} wide>
+      <div className="flex flex-col" style={{minHeight:'50vh'}}>
+        {/* Header bar */}
+        <div className="px-6 py-3 bg-stone-50 border-b border-stone-100 flex items-center justify-between">
+          <p className="text-sm text-stone-500">{sections.filter(s=>s.name).length} section{sections.filter(s=>s.name).length!==1?'s':''} · {totalPoses} pose{totalPoses!==1?'s':''}</p>
+          <div className="flex gap-2">
+            <Btn variant="ghost" size="xs" onClick={() => setCollapsed(Object.fromEntries(sections.map((_,i)=>[i,false])))} >Expand all</Btn>
+            <Btn variant="ghost" size="xs" onClick={() => setCollapsed(Object.fromEntries(sections.map((_,i)=>[i,true])))} >Collapse all</Btn>
+            <Btn variant="secondary" size="xs" onClick={onEdit}>{Icon.edit} Edit</Btn>
+            <Btn variant="primary" size="xs" onClick={() => onPlay(allSteps())}>
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Play All
+            </Btn>
+          </div>
+        </div>
+
+        {/* Sections */}
+        <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-2">
+          {sections.map((sec, si) => {
+            const steps = sectionSteps(sec.items);
+            const isCollapsed = collapsed[si];
+            const hasHeader = sec.name !== null;
+            return (
+              <div key={si} className={`rounded-xl overflow-hidden border ${hasHeader ? 'border-stone-200 shadow-sm' : 'border-transparent'}`}>
+                {hasHeader && (
+                  <button onClick={() => toggle(si)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-stone-700 hover:bg-stone-600 transition-colors text-left group">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                      className={`w-4 h-4 text-stone-300 transition-transform shrink-0 ${isCollapsed ? '-rotate-90' : ''}`}>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                    <span className="flex-1 font-display text-white font-semibold text-sm">{sec.name}</span>
+                    <span className="text-xs text-stone-400">{steps.length} pose{steps.length!==1?'s':''}</span>
+                    {steps.length > 0 && (
+                      <Btn variant="terra" size="xs" onClick={(e) => { e.stopPropagation(); onPlay(sectionSteps(sec.items)); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Play
+                      </Btn>
+                    )}
+                  </button>
+                )}
+                {!isCollapsed && (
+                  <div className={`space-y-0 ${hasHeader ? 'bg-white' : ''}`}>
+                    {sec.items.length === 0 && (
+                      <p className="text-xs text-stone-400 px-4 py-3 italic">No poses in this section</p>
+                    )}
+                    {sec.items.map((item, ii) => {
+                      const isLastItem = ii === sec.items.length - 1;
+                      if (item.type==='pose') {
+                        const pose = poses.find(p=>p.id===item.refId);
+                        if (!pose) return null;
+                        return (
+                          <div key={ii}>
+                            <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-stone-50 transition-colors">
+                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-sage-100 shrink-0">
+                                <PoseImg src={pose.imageUrl} alt={pose.name} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-medium text-stone-700">{pose.name}</p>
+                                  {item.side === 'right' && <span className="text-xs font-medium text-sage-600 bg-sage-50 px-1.5 py-0.5 rounded">Right</span>}
+                                  {item.side === 'left' && <span className="text-xs font-medium text-terra-600 bg-terra-50 px-1.5 py-0.5 rounded">Left</span>}
+                                  {pose.isSided && !item.side && <span className="text-xs font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Side?</span>}
+                                </div>
+                                {item.cues.length > 0 && <p className="text-xs text-stone-400 truncate">{item.cues[0]}{item.cues.length>1?` +${item.cues.length-1} more`:''}</p>}
+                              </div>
+                            </div>
+                            {!isLastItem && (item.transitionCue || item.transitionBreath) && (
+                              <div className="flex items-center gap-2 px-4 py-1.5 bg-terra-50/60">
+                                <div className="w-3 h-3 rounded-full border-2 border-terra-300 shrink-0 ml-3" />
+                                {item.transitionBreath && <span className="text-xs font-medium text-terra-500 capitalize">{item.transitionBreath} breath</span>}
+                                {item.transitionCue && <span className="text-xs text-terra-400">· {item.transitionCue}</span>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      } else if (item.type==='vinyette') {
+                        const v = vinyettes.find(x=>x.id===item.refId);
+                        if (!v) return null;
+                        const vPoses = v.items.map(vi=>poses.find(p=>p.id===vi.poseId)).filter(Boolean);
+                        return (
+                          <div key={ii}>
+                            <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-terra-50/40 transition-colors">
+                              <div className="w-9 h-9 rounded-lg bg-terra-100 flex items-center justify-center shrink-0 text-terra-400">{Icon.flower}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-stone-700">{v.name}</p>
+                                <p className="text-xs text-terra-400">{v.items.length} poses · Vinyette</p>
+                              </div>
+                              <div className="flex gap-0.5">
+                                {vPoses.slice(0,3).map((p,pi)=>(
+                                  <div key={pi} className="w-6 h-6 rounded overflow-hidden bg-sage-100 border border-white">
+                                    <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            {!isLastItem && (item.transitionCue || item.transitionBreath) && (
+                              <div className="flex items-center gap-2 px-4 py-1.5 bg-terra-50/60">
+                                <div className="w-3 h-3 rounded-full border-2 border-terra-300 shrink-0 ml-3" />
+                                {item.transitionBreath && <span className="text-xs font-medium text-terra-500 capitalize">{item.transitionBreath} breath</span>}
+                                {item.transitionCue && <span className="text-xs text-terra-400">· {item.transitionCue}</span>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Full Classes Page ────────────────────────────────────────────────────────
+function ClassesPage() {
+  const { poses, vinyettes, classes, addClass, updateClass, deleteClass } = useApp();
+  const [q, setQ] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [delId, setDelId] = useState(null);
+  const [outlining, setOutlining] = useState(null);
+
+  const filtered = useMemo(()=>classes.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())),[classes,q]);
+
+  const handleSave = (c) => {
+    if (editing) updateClass(c); else addClass(c);
+    setShowForm(false); setEditing(null);
+  };
+
+  const buildSteps = (cls) => {
+    const steps = [];
+    cls.items.forEach((item) => {
+      if (item.type==='section') {
+        steps.push({ isSection: true, sectionName: item.name });
+      } else if (item.type==='pose') {
+        const pose = poses.find(p=>p.id===item.refId);
+        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transitionCue:item.transitionCue, transitionBreath:item.transitionBreath });
+      } else if (item.type==='vinyette') {
+        const v = vinyettes.find(x=>x.id===item.refId);
+        if (v) {
+          v.items.forEach((vi, j) => {
+            const pose = poses.find(p=>p.id===vi.poseId);
+            if (pose) steps.push({
+              pose, cues:vi.cues, side:vi.side||'',
+              transitionCue: j<v.items.length-1 ? vi.transitionCue : item.transitionCue,
+              transitionBreath: j<v.items.length-1 ? vi.transitionBreath : item.transitionBreath,
+              groupName: v.name,
+            });
+          });
+        }
+      }
+    });
+    return steps;
+  };
+  const viewClass = (cls) => setViewing({ title: cls.name, steps: buildSteps(cls) });
+  const outlineClass = (cls) => {
+    // Build sections with their items for the outline view
+    const sections = [];
+    let current = { name: null, items: [] };
+    cls.items.forEach((item) => {
+      if (item.type==='section') {
+        if (current.items.length > 0 || current.name !== null) sections.push(current);
+        current = { name: item.name, items: [] };
+      } else {
+        current.items.push(item);
+      }
+    });
+    sections.push(current);
+    setOutlining({ cls, sections });
+  };
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative flex-1 max-w-xs">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
+          <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search classes…"
+            className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-xl text-sm focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all" />
+        </div>
+        <Btn variant="primary" onClick={()=>{ setEditing(null); setShowForm(true); }}>{Icon.plus} New Class</Btn>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="font-display text-xl text-stone-400 mb-2">{q?'No classes found':'No classes yet'}</p>
+          <p className="text-sm text-stone-400 mb-5">{q?'Try a different search':'Create your first full class sequence'}</p>
+          {!q && <Btn variant="primary" onClick={()=>setShowForm(true)}>{Icon.plus} New Class</Btn>}
+        </div>
+      ) : (
+        <div className="space-y-3 max-w-2xl">
+          {filtered.map(cls => {
+            const poseCount = cls.items.reduce((n,i)=>{
+              if(i.type==='pose') return n+1;
+              if(i.type==='section') return n;
+              const v=vinyettes.find(x=>x.id===i.refId); return n+(v?.items.length||0);
+            },0);
+            const sectionNames = cls.items.filter(i=>i.type==='section').map(i=>i.name);
+            const previews = cls.items.filter(i=>i.type!=='section').slice(0,4).map(item=>{
+              if(item.type==='pose') return poses.find(p=>p.id===item.refId);
+              const v=vinyettes.find(x=>x.id===item.refId);
+              if(!v||!v.items.length) return null;
+              return poses.find(p=>p.id===v.items[0].poseId);
+            }).filter(Boolean);
+            return (
+              <div key={cls.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-1 shrink-0">
+                    {previews.map((p,i)=>(
+                      <div key={i} className="w-10 h-10 rounded-lg overflow-hidden bg-sage-100 border-2 border-white -ml-1 first:ml-0 shadow-sm">
+                        <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-semibold text-stone-800">{cls.name}</p>
+                    {sectionNames.length > 0
+                      ? <p className="text-xs text-stone-400 truncate">{sectionNames.join(' · ')}</p>
+                      : <p className="text-xs text-stone-400">{poseCount} pose{poseCount!==1?'s':''}</p>
+                    }
+                  </div>
+                  <div className="flex gap-2">
+                    <Btn variant="secondary" size="xs" onClick={()=>outlineClass(cls)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+                      Outline
+                    </Btn>
+                    <Btn variant="secondary" size="xs" onClick={()=>viewClass(cls)}>{Icon.eye} Play</Btn>
+                    <Btn variant="ghost" size="xs" onClick={()=>{ setEditing(cls); setShowForm(true); }}>{Icon.edit}</Btn>
+                    <Btn variant="ghost" size="xs" onClick={()=>setDelId(cls.id)} className="hover:text-red-400">{Icon.trash}</Btn>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(showForm||editing) && (
+        <ClassFormModal cls={editing} onSave={handleSave} onClose={()=>{ setShowForm(false); setEditing(null); }} />
+      )}
+      {outlining && (
+        <ClassOutlineModal
+          cls={outlining.cls}
+          sections={outlining.sections}
+          onPlay={(steps) => { setOutlining(null); setViewing({ title: outlining.cls.name, steps }); }}
+          onEdit={() => { setEditing(outlining.cls); setShowForm(true); setOutlining(null); }}
+          onClose={() => setOutlining(null)}
+        />
+      )}
+      {viewing && <SequenceViewer title={viewing.title} steps={viewing.steps} onClose={()=>setViewing(null)} />}
+      {delId && (
+        <ConfirmDialog message="Delete this class?"
+          onConfirm={()=>{ deleteClass(delId); setDelId(null); }} onCancel={()=>setDelId(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── Import/Export ─────────────────────────────────────────────────────────────
+function ImportExportModal({ onClose }) {
+  const { poses, vinyettes, classes, importAll } = useApp();
+  const [importText, setImportText] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const doExport = () => {
+    const data = JSON.stringify({ poses, vinyettes, classes }, null, 2);
+    const blob = new Blob([data], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='yoga-data.json'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const doImport = () => {
+    try {
+      const data = JSON.parse(importText);
+      importAll(data);
+      setMsg('Imported successfully!');
+      setImportText('');
+    } catch(e) {
+      setMsg('Invalid JSON — please check the format.');
+    }
+  };
+
+  return (
+    <Modal title="Import / Export Data" onClose={onClose}>
+      <div className="p-6 space-y-6">
+        <div>
+          <p className="text-sm font-medium text-stone-700 mb-2">Export your data</p>
+          <p className="text-xs text-stone-400 mb-3">Download all poses, vinyettes and classes as a JSON file.</p>
+          <Btn variant="primary" onClick={doExport}>{Icon.download} Download JSON</Btn>
+        </div>
+        <hr className="border-stone-100" />
+        <div>
+          <p className="text-sm font-medium text-stone-700 mb-2">Import data</p>
+          <p className="text-xs text-stone-400 mb-3">Paste JSON below (same format as exported). This will merge with existing data.</p>
+          <textarea value={importText} onChange={(e)=>setImportText(e.target.value)} rows={6}
+            placeholder='{"poses": [...], "vinyettes": [...], "classes": [...]}'
+            className="w-full border border-stone-200 rounded-xl px-4 py-3 text-xs font-mono focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all resize-none" />
+          {msg && <p className={`text-sm mt-2 ${msg.includes('success')?'text-sage-600':'text-red-500'}`}>{msg}</p>}
+          <div className="mt-3">
+            <Btn variant="secondary" onClick={doImport} disabled={!importText.trim()}>{Icon.upload} Import</Btn>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+function Sidebar({ active, onNav }) {
+  const nav = [
+    { id:'poses', label:'Pose Library', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
+    { id:'vinyettes', label:'Vinyettes', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
+    { id:'classes', label:'Full Classes', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
+  ];
+  return (
+    <div className="w-56 bg-stone-800 h-screen flex flex-col shrink-0">
+      <div className="px-5 py-5 border-b border-stone-700/50">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-sage-600 flex items-center justify-center text-white">{Icon.flower}</div>
+          <div>
+            <p className="font-display text-white font-semibold text-sm leading-tight">Yoga Teacher</p>
+            <p className="text-stone-400 text-xs">Sequence Planner</p>
+          </div>
+        </div>
+      </div>
+      <nav className="flex-1 p-3 space-y-1">
+        {nav.map(n=>(
+          <button key={n.id} onClick={()=>onNav(n.id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left
+              ${active===n.id ? 'bg-sage-600 text-white shadow-sm' : 'text-stone-400 hover:text-white hover:bg-stone-700/60'}`}>
+            {n.icon}{n.label}
+          </button>
+        ))}
+      </nav>
+      <div className="p-3 border-t border-stone-700/50">
+        <button onClick={()=>onNav('io')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-400 hover:text-white hover:bg-stone-700/60 transition-all">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Import / Export
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── App Provider ─────────────────────────────────────────────────────────────
+function AppProvider({ children }) {
+  const [poses, setPoses] = useState(() => storage.load(KEYS.poses) || []);
+  const [vinyettes, setVinyettes] = useState(() => storage.load(KEYS.vinyettes) || []);
+  const [classes, setClasses] = useState(() => storage.load(KEYS.classes) || []);
+
+  useEffect(() => { storage.save(KEYS.poses, poses); }, [poses]);
+  useEffect(() => { storage.save(KEYS.vinyettes, vinyettes); }, [vinyettes]);
+  useEffect(() => { storage.save(KEYS.classes, classes); }, [classes]);
+
+  // Resolve poseName items → pose refId items using a known poses array
+  const resolveClass = (seedClass, knownPoses) => {
+    const items = seedClass.items.map(item => {
+      if (item.type !== 'poseName') return item;
+      const pose = knownPoses.find(p => p.name === item.name);
+      if (!pose) return null;
+      return { type: 'pose', refId: pose.id, cues: [...pose.cues], transitionCue: '', transitionBreath: '' };
+    }).filter(Boolean);
+    return { id: uid(), name: seedClass.name, items };
+  };
+
+  // Seed on first run
+  useEffect(() => {
+    const posesAlreadySeeded = !!storage.load(KEYS.seeded);
+    const classAlreadySeeded = !!storage.load(KEYS.classSeeded);
+
+    let knownPoses = storage.load(KEYS.poses) || [];
+
+    if (!posesAlreadySeeded && SEED_POSES.length > 0) {
+      knownPoses = SEED_POSES.map(p => ({ ...p, id: uid() }));
+      setPoses(knownPoses);
+      storage.save(KEYS.seeded, true);
+    }
+
+    if (!classAlreadySeeded && SEED_CLASS) {
+      const seededClass = resolveClass(SEED_CLASS, knownPoses);
+      setClasses([seededClass]);
+      storage.save(KEYS.classSeeded, true);
+    }
+  }, []);
+
+  const addPose = (p) => setPoses(ps => [...ps, p]);
+  const updatePose = (p) => setPoses(ps => ps.map(x => x.id===p.id ? p : x));
+  const deletePose = (id) => {
+    setPoses(ps => ps.filter(p => p.id!==id));
+    setVinyettes(vs => vs.map(v => ({ ...v, items: v.items.filter(i => i.poseId!==id) })));
+    setClasses(cs => cs.map(c => ({ ...c, items: c.items.filter(i => !(i.type==='pose' && i.refId===id)) })));
+  };
+
+  const addVinyette = (v) => setVinyettes(vs => [...vs, v]);
+  const updateVinyette = (v) => setVinyettes(vs => vs.map(x => x.id===v.id ? v : x));
+  const deleteVinyette = (id) => {
+    setVinyettes(vs => vs.filter(v => v.id!==id));
+    setClasses(cs => cs.map(c => ({ ...c, items: c.items.filter(i => !(i.type==='vinyette' && i.refId===id)) })));
+  };
+
+  const addClass = (c) => setClasses(cs => [...cs, c]);
+  const updateClass = (c) => setClasses(cs => cs.map(x => x.id===c.id ? c : x));
+  const deleteClass = (id) => setClasses(cs => cs.filter(c => c.id!==id));
+
+  const importAll = ({ poses: p, vinyettes: v, classes: c }) => {
+    if (p) setPoses(existing => {
+      const names = new Set(existing.map(x=>x.name));
+      const newOnes = p.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
+      return [...existing, ...newOnes];
+    });
+    if (v) setVinyettes(existing => {
+      const names = new Set(existing.map(x=>x.name));
+      const newOnes = v.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
+      return [...existing, ...newOnes];
+    });
+    if (c) setClasses(existing => {
+      const names = new Set(existing.map(x=>x.name));
+      const newOnes = c.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
+      return [...existing, ...newOnes];
+    });
+  };
+
+  const ctx = {
+    poses, addPose, updatePose, deletePose,
+    vinyettes, addVinyette, updateVinyette, deleteVinyette,
+    classes, addClass, updateClass, deleteClass,
+    importAll,
+  };
+  return <AppCtx.Provider value={ctx}>{children}</AppCtx.Provider>;
+}
+
+// ─── Root App ─────────────────────────────────────────────────────────────────
+function App() {
+  const [view, setView] = useState('poses');
+  const [showIO, setShowIO] = useState(false);
+
+  const handleNav = (id) => {
+    if (id==='io') { setShowIO(true); return; }
+    setView(id);
+  };
+
+  const titles = { poses:'Pose Library', vinyettes:'Vinyettes', classes:'Full Classes' };
+
+  return (
+    <AppProvider>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar active={view} onNav={handleNav} />
+        <div className="flex-1 flex flex-col overflow-hidden bg-stone-50">
+          <div className="h-14 border-b border-stone-200 px-6 flex items-center bg-white shrink-0">
+            <h1 className="font-display text-xl text-stone-800">{titles[view]}</h1>
+          </div>
+          {view==='poses' && <PosesPage />}
+          {view==='vinyettes' && <VinyettesPage />}
+          {view==='classes' && <ClassesPage />}
+        </div>
+      </div>
+      {showIO && <ImportExportModal onClose={()=>setShowIO(false)} />}
+    </AppProvider>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
