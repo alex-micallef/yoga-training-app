@@ -46,7 +46,7 @@ const storage = {
   load: (key) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
   save: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 };
-const KEYS = { poses:'yt_poses', vinyettes:'yt_vinyettes', classes:'yt_classes', seeded:'yt_seeded', classSeeded:'yt_class_seeded' };
+const KEYS = { poses:'yt_poses', transitions:'yt_transitions', vinyettes:'yt_vinyettes', classes:'yt_classes', seeded:'yt_seeded', classSeeded:'yt_class_seeded', transitionsSeeded:'yt_transitions_seeded', migratedV2:'yt_migrated_v2' };
 
 // ─── ID ─────────────────────────────────────────────────────────────────────
 let _id = 0;
@@ -87,41 +87,46 @@ function reorder(arr, from, to) {
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED_POSES = [
-  { name: "W-1 in 2", description: "", imageUrl: "", cues: ["Step right foot forward between the hands", "Step left foot forward between the hands", "Ground down back foot", "Feet can be heel to heel or on train tracks", "Keep a bend in the front leg", "Back leg extended can have a microbend", "Reach arms to sky or cactus arms", "Right leg takes a big step forward", "Left leg takes a big step forward"] },
-  { name: "W-1 in", description: "", imageUrl: "", cues: ["Back foot tracks forward 45°", "Press through all four corners of feet", "Spread toes", "Hip points track forward", "Virabhadrasana A", "Flexion in front knee", "Extension in the back knee or with microbend", "Microbends can help us engage and build strength", "Naval to spine", "Engage core", "Stand tall and proud", "Hands on hips, cactus or straight", "Bring palms together if you have space", "Find slight backbend here through upper back", "Engage through traps, lats in the back", "Engage through front body", "Bring everything to your midline, centre point", "Extend through elbows", "Lengthen neck and drop shoulders", "Few shoulder shrugs here to help us drop shoulders", "Drishti between the hands or to ceiling"] },
-  { name: "W-2 in 2", description: "", imageUrl: "", cues: ["Back foot parallel to the long edge of the mat", "Back foot at 90°, front foot forward", "Swivel down back foot", "Heel to heel alignment", "Keep a nice bend in front leg", "Back leg extended", "Press through outer blade back foot"] },
-  { name: "W-2 in", description: "", imageUrl: "", cues: ["Pull up through back thigh", "Draw everything into your midline, core to engage", "Arms spread wide", "What is the back arm doing in space — level with front", "Hips pointing towards side of the room", "Can you sink a little deeper", "Drishti over front finger"] },
-  { name: "Reverse Warrior in 2", description: "", imageUrl: "", cues: [] },
-  { name: "Reverse Warrior in", description: "", imageUrl: "", cues: [] },
-  { name: "W-3 in 2", description: "", imageUrl: "", cues: [] },
-  { name: "W-3 in 2 (alt)", description: "", imageUrl: "", cues: [] },
-  { name: "W-3 in", description: "", imageUrl: "", cues: [] },
-  { name: "Tadasana in 2", description: "", imageUrl: "", cues: ["Stand tall"] },
+  { name: "W-1 in", description: "", imageUrl: "", isSided: true, cues: ["Back foot tracks forward 45°", "Press through all four corners of feet", "Spread toes", "Hip points track forward", "Virabhadrasana A", "Flexion in front knee", "Extension in the back knee or with microbend", "Microbends can help us engage and build strength", "Naval to spine", "Engage core", "Stand tall and proud", "Hands on hips, cactus or straight", "Bring palms together if you have space", "Find slight backbend here through upper back", "Engage through traps, lats in the back", "Engage through front body", "Bring everything to your midline, centre point", "Extend through elbows", "Lengthen neck and drop shoulders", "Few shoulder shrugs here to help us drop shoulders", "Drishti between the hands or to ceiling"] },
+  { name: "W-2 in", description: "", imageUrl: "", isSided: true, cues: ["Pull up through back thigh", "Draw everything into your midline, core to engage", "Arms spread wide", "What is the back arm doing in space — level with front", "Hips pointing towards side of the room", "Can you sink a little deeper", "Drishti over front finger"] },
+  { name: "Reverse Warrior in", description: "", imageUrl: "", isSided: true, cues: [] },
+  { name: "W-3 in", description: "", imageUrl: "", isSided: true, cues: [] },
   { name: "Tadasana in", description: "", imageUrl: "", cues: ["Experiment with shifting weight to different parts of the feet", "Proud head", "Where is back of head in relation to tailbone", "Place hand on top of head, press head into hand and hand into head"] },
-  { name: "Urdhva Hastasana in 2", description: "", imageUrl: "", cues: ["Reach up", "Prayer to sky", "Lift up", "Come to stand as you reach arms to sky"] },
   { name: "Urdhva Hastasana in", description: "", imageUrl: "", cues: ["Sternum to sky", "Gaze to sky", "Stretch front body", "Gentle arch in upper back", "Extending through front body", "Stretch belly and side body and neck", "Press through feet", "Draw thighs together", "Lift your gaze"] },
-  { name: "Ardha Uttanasana in 2", description: "", imageUrl: "", cues: ["Halfway lift", "Gaze to top of mat", "Lengthen spine"] },
   { name: "Ardha Uttanasana in", description: "", imageUrl: "", cues: ["Broaden collarbones", "Shoulders away from ears", "Keep length in spine", "Hands flat to mat or shins", "Look ahead", "Find length in the spine"] },
-  { name: "Uttanasana in 2", description: "", imageUrl: "", cues: ["Pour the body over the legs", "Hinge at the hips", "Crown of head to floor", "Release", "Dive down with control", "Forward fold", "Belly to thigh"] },
   { name: "Uttanasana in", description: "", imageUrl: "", cues: ["Gaze between legs", "Hollow belly", "Tailbone to sky", "Engage mulabandha"] },
-  { name: "Step/Jump back in 2", description: "", imageUrl: "", cues: ["Step or jump back"] },
-  { name: "Plank in 2", description: "", imageUrl: "", cues: [] },
   { name: "Plank in", description: "", imageUrl: "", cues: [] },
-  { name: "Knees Chest Chin in 2", description: "", imageUrl: "", cues: ["Lower in one line", "Draw in belly button"] },
   { name: "Knees Chest Chin in", description: "", imageUrl: "", cues: [] },
-  { name: "Chaturanga in 2", description: "", imageUrl: "", cues: ["Lower down", "Flow through", "From plank shift weight forward", "Flex at elbows, keep close to body as you lower", "Shift forward then lower"] },
   { name: "Chaturanga in", description: "", imageUrl: "", cues: ["Lower with control", "Back neck long, gaze to floor or just ahead", "Chin slightly tucked", "Shoulders no lower than elbows", "Stay up higher than you think"] },
-  { name: "Cobra in 2", description: "", imageUrl: "", cues: [] },
   { name: "Cobra in", description: "", imageUrl: "", cues: ["Length not height", "Draw in navel", "No weight in hands"] },
-  { name: "Urdhva Mukha Svanasana in 2", description: "", imageUrl: "", cues: ["Upward facing dog", "Push through and find an arch in back", "Peel up", "Find a backbend"] },
   { name: "Urdhva Mukha Svanasana in", description: "", imageUrl: "", cues: ["Open heart to sky", "Open through chest and shoulders", "Engage front body to open back body", "Squeeze abdomen", "Open through chest", "Draw shoulders down and back"] },
-  { name: "Adho Mukha Svanasana in 2", description: "", imageUrl: "", cues: ["Downward facing dog", "Roll through the spine", "Thighs press up and back", "Press back, roll over toes"] },
   { name: "Adho Mukha Svanasana in", description: "", imageUrl: "", cues: ["Drishti to navel", "Upside down V", "Bend in the knees", "Heels trying to reach floor", "External rotation in shoulders", "Inside elbows towards front of room", "Rip mat apart with hands and feet", "Push into finger pads and knuckles", "Hips high"] },
-  { name: "Step/Jump forward in 2", description: "", imageUrl: "", cues: ["After your inhale move forward", "Travel to front of mat", "Step or jump"] },
-  { name: "Utkatasana in 2", description: "", imageUrl: "", cues: ["Chair pose", "Sit back on your imaginary chair", "Hips lower", "Sit bones to back of room", "Bend both knees"] },
   { name: "Utkatasana in", description: "", imageUrl: "", cues: ["Feet together or hip width", "See your toes", "Arms raise up or to prayer at heart centre", "Draw in abdomen", "Feel the burn"] },
   { name: "Prasarita in", description: "", imageUrl: "", cues: ["Lift up through sit bones", "Hollow the belly"] },
-  { name: "Prasarita into", description: "", imageUrl: "", cues: [] },
+];
+
+// Transition library seed data — these were the "in 2" entry/movement cues
+// toPoseName is resolved to a toPoseId at seed time
+const SEED_TRANSITIONS = [
+  { name: "W-1 in 2", toPoseName: "W-1 in", cues: ["Step right foot forward between the hands", "Step left foot forward between the hands", "Ground down back foot", "Feet can be heel to heel or on train tracks", "Keep a bend in the front leg", "Back leg extended can have a microbend", "Reach arms to sky or cactus arms", "Right leg takes a big step forward", "Left leg takes a big step forward"] },
+  { name: "W-2 in 2", toPoseName: "W-2 in", cues: ["Back foot parallel to the long edge of the mat", "Back foot at 90°, front foot forward", "Swivel down back foot", "Heel to heel alignment", "Keep a nice bend in front leg", "Back leg extended", "Press through outer blade back foot"] },
+  { name: "Reverse Warrior in 2", toPoseName: "Reverse Warrior in", cues: [] },
+  { name: "W-3 in 2", toPoseName: "W-3 in", cues: [] },
+  { name: "W-3 in 2 (alt)", toPoseName: "W-3 in", cues: [] },
+  { name: "Tadasana in 2", toPoseName: "Tadasana in", cues: ["Stand tall"] },
+  { name: "Urdhva Hastasana in 2", toPoseName: "Urdhva Hastasana in", cues: ["Reach up", "Prayer to sky", "Lift up", "Come to stand as you reach arms to sky"] },
+  { name: "Ardha Uttanasana in 2", toPoseName: "Ardha Uttanasana in", cues: ["Halfway lift", "Gaze to top of mat", "Lengthen spine"] },
+  { name: "Uttanasana in 2", toPoseName: "Uttanasana in", cues: ["Pour the body over the legs", "Hinge at the hips", "Crown of head to floor", "Release", "Dive down with control", "Forward fold", "Belly to thigh"] },
+  { name: "Step/Jump back in 2", toPoseName: null, cues: ["Step or jump back"] },
+  { name: "Plank in 2", toPoseName: "Plank in", cues: [] },
+  { name: "Knees Chest Chin in 2", toPoseName: "Knees Chest Chin in", cues: ["Lower in one line", "Draw in belly button"] },
+  { name: "Chaturanga in 2", toPoseName: "Chaturanga in", cues: ["Lower down", "Flow through", "From plank shift weight forward", "Flex at elbows, keep close to body as you lower", "Shift forward then lower"] },
+  { name: "Cobra in 2", toPoseName: "Cobra in", cues: [] },
+  { name: "Urdhva Mukha Svanasana in 2", toPoseName: "Urdhva Mukha Svanasana in", cues: ["Upward facing dog", "Push through and find an arch in back", "Peel up", "Find a backbend"] },
+  { name: "Adho Mukha Svanasana in 2", toPoseName: "Adho Mukha Svanasana in", cues: ["Downward facing dog", "Roll through the spine", "Thighs press up and back", "Press back, roll over toes"] },
+  { name: "Step/Jump forward in 2", toPoseName: null, cues: ["After your inhale move forward", "Travel to front of mat", "Step or jump"] },
+  { name: "Utkatasana in 2", toPoseName: "Utkatasana in", cues: ["Chair pose", "Sit back on your imaginary chair", "Hips lower", "Sit bones to back of room", "Bend both knees"] },
+  { name: "Prasarita into", toPoseName: "Prasarita in", cues: [] },
 ];
 
 // Items with type:'poseName' are resolved to pose refIds at seed time.
@@ -159,7 +164,7 @@ const SEED_CLASS = {
     { type: 'poseName', name: 'W-2 in' },
     { type: 'poseName', name: 'Reverse Warrior in' },
     // Triangle, Easy twist — not in library
-    { type: 'poseName', name: 'W-3 in 2' },
+    { type: 'poseName', name: 'W-3 in' },
     // High lunge, Revolved side angle, Side plank, Locus — not in library
     { type: 'poseName', name: 'Plank in' },
     { type: 'poseName', name: 'Adho Mukha Svanasana in' },
@@ -167,7 +172,7 @@ const SEED_CLASS = {
     { type: 'poseName', name: 'Ardha Uttanasana in' },
     { type: 'poseName', name: 'Uttanasana in' },
     // Tree pose, Pyramid pose — not in library
-    { type: 'poseName', name: 'W-3 in 2' },
+    { type: 'poseName', name: 'W-3 in' },
     // Half splits, Revolved side angle — not in library
     { type: 'poseName', name: 'Prasarita in' },
     { type: 'poseName', name: 'Adho Mukha Svanasana in' },
@@ -176,6 +181,17 @@ const SEED_CLASS = {
     // Bridge, seated sequence, supine twist, savasana — not in library
   ],
 };
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const POSE_CATEGORIES = ['Backbend','Fold','Twist','Seated','Standing','Inversion','Arm balance','Core','Strengthener','Stretch','Hamstrings','Quads','Hip opener','Supine'];
+
+function lookupTransition(transitions, fromPoseId, toPoseId) {
+  const specific = transitions.find(t => t.toPoseId === toPoseId && t.fromPoseId === fromPoseId);
+  if (specific) return specific;
+  return transitions.find(t => t.toPoseId === toPoseId && t.fromPoseId === null) || null;
+}
+function emptyTransition() { return { libraryId: null, cues: [], enabled: false }; }
+function flipSide(side) { return side === 'right' ? 'left' : side === 'left' ? 'right' : side; }
 
 // ─── Common Components ───────────────────────────────────────────────────────
 function Btn({ children, variant='primary', size='sm', onClick, type='button', disabled, className='' }) {
@@ -296,8 +312,12 @@ function PoseFormModal({ pose, onSave, onClose }) {
     description: pose?.description || '',
     imageUrl: pose?.imageUrl || '',
     isSided: pose?.isSided || false,
+    categories: pose?.categories ? [...pose.categories] : [],
     cues: pose?.cues ? [...pose.cues] : [],
   });
+  const toggleCat = (cat) => set('categories',
+    form.categories.includes(cat) ? form.categories.filter(c=>c!==cat) : [...form.categories, cat]
+  );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
     if (!form.name.trim()) return;
@@ -348,6 +368,21 @@ function PoseFormModal({ pose, onSave, onClose }) {
           </button>
         </div>
         <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-2">Categories</label>
+          <div className="flex flex-wrap gap-1.5">
+            {POSE_CATEGORIES.map(cat => (
+              <button key={cat} type="button" onClick={() => toggleCat(cat)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  form.categories.includes(cat)
+                    ? 'bg-sage-500 text-white shadow-sm'
+                    : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                }`}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
           <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Verbal Cues</label>
           <CueList cues={form.cues} onChange={(v)=>set('cues',v)} />
         </div>
@@ -375,6 +410,13 @@ function PoseDetailDrawer({ pose, onEdit, onClose }) {
             <PoseImg src={pose.imageUrl} alt={pose.name} />
           </div>
           {pose.description && <p className="px-5 pt-4 text-sm text-stone-600 leading-relaxed">{pose.description}</p>}
+          {pose.categories?.length > 0 && (
+            <div className="px-5 pt-4 flex flex-wrap gap-1.5">
+              {pose.categories.map(cat => (
+                <span key={cat} className="px-2 py-0.5 bg-sage-100 text-sage-700 text-xs rounded-full font-medium">{cat}</span>
+              ))}
+            </div>
+          )}
           {pose.cues.length > 0 && (
             <div className="px-5 pt-4 pb-6">
               <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Verbal Cues</p>
@@ -401,14 +443,19 @@ function PoseDetailDrawer({ pose, onEdit, onClose }) {
 function PosesPage() {
   const { poses, addPose, updatePose, deletePose } = useApp();
   const [q, setQ] = useState('');
+  const [catFilter, setCatFilter] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
   const [delId, setDelId] = useState(null);
 
   const filtered = useMemo(() =>
-    poses.filter(p => p.name.toLowerCase().includes(q.toLowerCase())),
-    [poses, q]
+    poses.filter(p => {
+      if (!p.name.toLowerCase().includes(q.toLowerCase())) return false;
+      if (catFilter.length > 0 && !catFilter.some(c => p.categories?.includes(c))) return false;
+      return true;
+    }),
+    [poses, q, catFilter]
   );
 
   const handleSave = (pose) => {
@@ -422,13 +469,26 @@ function PosesPage() {
 
   return (
     <div className="flex-1 overflow-auto p-6">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-3">
         <div className="relative flex-1 max-w-xs">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
           <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search poses…"
             className="w-full pl-9 pr-4 py-2 border border-stone-200 rounded-xl text-sm focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all" />
         </div>
         <Btn variant="primary" onClick={()=>{ setEditing(null); setShowForm(true); }}>{Icon.plus} New Pose</Btn>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-5">
+        {POSE_CATEGORIES.map(cat => (
+          <button key={cat} type="button" onClick={() => setCatFilter(f => f.includes(cat) ? f.filter(c=>c!==cat) : [...f, cat])}
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+              catFilter.includes(cat) ? 'bg-sage-500 text-white shadow-sm' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}>
+            {cat}
+          </button>
+        ))}
+        {catFilter.length > 0 && (
+          <button type="button" onClick={() => setCatFilter([])} className="px-2.5 py-1 rounded-lg text-xs font-medium text-stone-400 hover:text-red-400 transition-colors">✕ clear</button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -451,10 +511,17 @@ function PosesPage() {
                   <p className="font-display text-sm font-semibold text-stone-800 truncate flex-1">{p.name}</p>
                   {p.isSided && <span className="shrink-0 text-xs bg-sage-100 text-sage-700 px-1.5 py-0.5 rounded font-medium">L/R</span>}
                 </div>
-                {p.cues.slice(0,2).map((c,i)=>(
+                {p.categories?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {p.categories.slice(0,3).map(cat => (
+                      <span key={cat} className="text-xs bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">{cat}</span>
+                    ))}
+                    {p.categories.length > 3 && <span className="text-xs text-stone-400">+{p.categories.length-3}</span>}
+                  </div>
+                )}
+                {p.cues.slice(0,1).map((c,i)=>(
                   <p key={i} className="text-xs text-stone-500 truncate leading-relaxed">{c}</p>
                 ))}
-                {p.cues.length > 2 && <p className="text-xs text-stone-400">+{p.cues.length-2} more</p>}
               </div>
               <div className="px-3 pb-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e)=>e.stopPropagation()}>
                 <Btn variant="ghost" size="xs" onClick={()=>{ setEditing(p); setShowForm(true); }}>{Icon.edit}</Btn>
@@ -533,11 +600,102 @@ function CueSelector({ selected, allCues, onChange }) {
   );
 }
 
+// ─── Category Filter ─────────────────────────────────────────────────────────
+function CategoryFilter({ selected, onChange }) {
+  const toggle = (cat) => onChange(
+    selected.includes(cat) ? selected.filter(c => c !== cat) : [...selected, cat]
+  );
+  return (
+    <div className="flex flex-wrap gap-1 px-2 py-2 border-b border-stone-100">
+      {POSE_CATEGORIES.map(cat => (
+        <button key={cat} type="button" onClick={() => toggle(cat)}
+          className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all leading-tight ${
+            selected.includes(cat)
+              ? 'bg-sage-500 text-white shadow-sm'
+              : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+          }`}>
+          {cat}
+        </button>
+      ))}
+      {selected.length > 0 && (
+        <button type="button" onClick={() => onChange([])}
+          className="px-1.5 py-0.5 rounded text-xs font-medium text-stone-400 hover:text-red-400 transition-colors">
+          ✕ clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Transition Cue Editor ────────────────────────────────────────────────────
+function TransitionCueEditor({ cues, onChange }) {
+  const addStep = () => onChange([...cues, { text: '', breath: '' }]);
+  const update = (i, field, val) => onChange(cues.map((c, j) => j === i ? { ...c, [field]: val } : c));
+  const remove = (i) => onChange(cues.filter((_, j) => j !== i));
+  return (
+    <div className="space-y-2">
+      {cues.map((cue, i) => (
+        <div key={i} className="flex items-start gap-2 group">
+          <div className="flex-1 space-y-1">
+            <input value={cue.text} onChange={(e) => update(i, 'text', e.target.value)}
+              placeholder="Movement cue…"
+              className="w-full text-sm border border-stone-200 rounded-lg px-3 py-1.5 focus:border-terra-300 focus:ring-1 focus:ring-terra-50 transition-all" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-stone-400">Breath:</span>
+              <BreathToggle value={cue.breath} onChange={(v) => update(i, 'breath', v)} />
+            </div>
+          </div>
+          <button onClick={() => remove(i)} className="mt-1.5 text-stone-300 hover:text-red-400 transition-colors p-1 rounded opacity-0 group-hover:opacity-100">{Icon.x}</button>
+        </div>
+      ))}
+      <button onClick={addStep}
+        className="flex items-center gap-1.5 text-xs text-terra-500 hover:text-terra-700 font-medium transition-colors py-1">
+        {Icon.plus} Add cue step
+      </button>
+    </div>
+  );
+}
+
+// ─── Transition Slot ──────────────────────────────────────────────────────────
+function TransitionSlot({ transition, onTransitionChange, onSaveToLibrary }) {
+  const t = transition || emptyTransition();
+  const { enabled, cues } = t;
+  return (
+    <div className="mx-4 py-3 border-t border-dashed border-stone-200 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full bg-terra-100 flex items-center justify-center shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-terra-400" />
+          </div>
+          <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Transition</p>
+        </div>
+        <button type="button" onClick={() => onTransitionChange({ ...t, enabled: !enabled })}
+          className={`text-xs px-2 py-0.5 rounded-md font-medium transition-all ${enabled ? 'bg-terra-100 text-terra-600 hover:bg-terra-200' : 'bg-stone-100 text-stone-400 hover:bg-stone-200'}`}>
+          {enabled ? 'On' : 'Off'}
+        </button>
+      </div>
+      {enabled && (
+        <>
+          <TransitionCueEditor cues={cues} onChange={(v) => onTransitionChange({ ...t, cues: v })} />
+          {cues.length > 0 && onSaveToLibrary && (
+            <button type="button" onClick={() => onSaveToLibrary(cues)}
+              className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-sage-600 font-medium transition-colors py-0.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save to transition library
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Sequence Item Row (shared) ───────────────────────────────────────────────
-function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart, onDrop, isLast, classMode }) {
+function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart, onDrop, isLast, classMode, onSaveTransitionToLibrary }) {
   const [open, setOpen] = useState(!classMode);
   if (!pose) return null;
   const sideLabel = item.side === 'right' ? 'Right' : item.side === 'left' ? 'Left' : null;
+  const transition = item.transition || emptyTransition();
   return (
     <div draggable onDragStart={()=>onDragStart(index)} onDragOver={(e)=>{e.preventDefault();}} onDrop={()=>onDrop(index)}
       className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -574,21 +732,11 @@ function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart,
       )}
 
       {!isLast && (
-        <div className="mx-4 py-3 border-t border-dashed border-stone-200 space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-terra-100 flex items-center justify-center shrink-0">
-              <div className="w-1.5 h-1.5 rounded-full bg-terra-400" />
-            </div>
-            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Transition</p>
-          </div>
-          <input value={item.transitionCue} onChange={(e)=>onChange({...item,transitionCue:e.target.value})}
-            placeholder="Describe how to move to next pose…"
-            className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:border-terra-300 focus:ring-2 focus:ring-terra-50 transition-all" />
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-stone-400">On:</span>
-            <BreathToggle value={item.transitionBreath} onChange={(v)=>onChange({...item,transitionBreath:v})} />
-          </div>
-        </div>
+        <TransitionSlot
+          transition={transition}
+          onTransitionChange={(t) => onChange({...item, transition: t})}
+          onSaveToLibrary={onSaveTransitionToLibrary}
+        />
       )}
     </div>
   );
@@ -596,7 +744,7 @@ function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart,
 
 // ─── Sequence Viewer ──────────────────────────────────────────────────────────
 function SequenceViewer({ title, steps, onClose }) {
-  // steps: [{pose, cues, transitionCue, transitionBreath, groupName?}]
+  // steps: [{pose, cues, side, transition:{enabled,cues:[{text,breath}]}, groupName?, isSection?, sectionName?}]
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     const fn = (e) => {
@@ -609,7 +757,7 @@ function SequenceViewer({ title, steps, onClose }) {
   }, [steps.length, onClose]);
   const step = steps[idx];
   if (!step) return null;
-  const breathLabel = step.transitionBreath === 'in' ? 'Inhale' : step.transitionBreath === 'out' ? 'Exhale' : '';
+  const transCues = (step.transition?.enabled && step.transition?.cues?.length > 0) ? step.transition.cues : [];
 
   // Dot nav: group consecutive section+poses for context
   const sectionOfIdx = (() => {
@@ -677,12 +825,17 @@ function SequenceViewer({ title, steps, onClose }) {
       <div className="flex-none flex flex-col items-center gap-3 pt-3 pb-5 border-t border-white/5">
         {/* Transition block — always rendered to hold space; visible only when content exists */}
         <div className={`w-full max-w-xs mx-auto px-5 py-3 rounded-2xl text-center transition-all ${
-          idx < steps.length-1 && (step.transitionCue || step.transitionBreath)
+          idx < steps.length-1 && transCues.length > 0
             ? 'bg-terra-900/40 border border-terra-700/30'
             : 'opacity-0 pointer-events-none'
         }`} style={{minHeight:'52px'}}>
-          {breathLabel && <p className="text-terra-300 text-xs font-medium uppercase tracking-widest mb-1">↓ {breathLabel}</p>}
-          {step.transitionCue && <p className="text-terra-200 text-sm">{step.transitionCue}</p>}
+          {transCues.map((cue, ci) => (
+            <div key={ci} className={ci > 0 ? 'mt-2' : ''}>
+              {cue.breath === 'in' && <p className="text-terra-300 text-xs font-medium uppercase tracking-widest mb-0.5">↑ Inhale</p>}
+              {cue.breath === 'out' && <p className="text-terra-300 text-xs font-medium uppercase tracking-widest mb-0.5">↓ Exhale</p>}
+              {cue.text && <p className="text-terra-200 text-sm">{cue.text}</p>}
+            </div>
+          ))}
         </div>
         <div className="flex items-center gap-4">
           <button onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0}
@@ -708,19 +861,34 @@ function SequenceViewer({ title, steps, onClose }) {
 
 // ─── Vinyette Form Modal ──────────────────────────────────────────────────────
 function VinyetteFormModal({ vinyette, onSave, onClose }) {
-  const { poses } = useApp();
+  const { poses, transitions, saveTransitionToLibrary } = useApp();
   const [name, setName] = useState(vinyette?.name || '');
-  const [items, setItems] = useState(vinyette?.items ? vinyette.items.map(i=>({...i,cues:[...i.cues]})) : []);
+  const [items, setItems] = useState(vinyette?.items ? vinyette.items.map(i=>({...i, cues:[...i.cues], transition: i.transition ? {...i.transition, cues:[...( i.transition.cues||[])]} : emptyTransition()})) : []);
   const [q, setQ] = useState('');
+  const [catFilter, setCatFilter] = useState([]);
   const { onDragStart, onDrop } = useDragSort(items, setItems);
 
+  const hasSidedItems = items.some(it => { const p = poses.find(x=>x.id===it.poseId); return p?.isSided; });
+
   const filtered = useMemo(() =>
-    poses.filter(p => p.name.toLowerCase().includes(q.toLowerCase())),
-    [poses, q]
+    poses.filter(p => {
+      if (!p.name.toLowerCase().includes(q.toLowerCase())) return false;
+      if (catFilter.length > 0 && !catFilter.some(c => p.categories?.includes(c))) return false;
+      return true;
+    }),
+    [poses, q, catFilter]
   );
   const addPose = (pose) => {
-    setItems(it => [...it, { poseId: pose.id, cues: [...pose.cues], side: '', transitionCue:'', transitionBreath:'' }]);
+    setItems(it => {
+      const prevPoseId = it.length > 0 ? it[it.length-1].poseId : null;
+      const match = lookupTransition(transitions, prevPoseId, pose.id);
+      const transition = match
+        ? { libraryId: match.id, cues: match.cues.map(c=>({...c})), enabled: true }
+        : emptyTransition();
+      return [...it, { poseId: pose.id, cues: [...pose.cues], side: '', transition }];
+    });
   };
+  const mirrorItems = () => setItems(it => it.map(item => ({ ...item, side: flipSide(item.side || '') })));
   const save = () => {
     if (!name.trim()) return;
     onSave({ ...vinyette, id: vinyette?.id || uid(), name: name.trim(), items });
@@ -743,6 +911,7 @@ function VinyetteFormModal({ vinyette, onSave, onClose }) {
                   className="w-full pl-8 pr-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:border-sage-300 focus:ring-1 focus:ring-sage-100 transition-all" />
               </div>
             </div>
+            <CategoryFilter selected={catFilter} onChange={setCatFilter} />
             <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
               {filtered.length === 0 && <p className="text-xs text-stone-400 p-2 text-center">No poses found</p>}
               {filtered.map(p => (
@@ -767,19 +936,33 @@ function VinyetteFormModal({ vinyette, onSave, onClose }) {
             )}
             {items.map((item, i) => {
               const pose = poses.find(p=>p.id===item.poseId);
+              const nextItem = items[i+1];
+              const nextPoseId = nextItem?.poseId || null;
               return (
                 <SeqItemRow key={i} item={item} pose={pose} index={i} total={items.length}
                   isLast={i===items.length-1}
                   onChange={(v)=>setItems(it=>it.map((x,j)=>j===i?v:x))}
                   onRemove={()=>setItems(it=>it.filter((_,j)=>j!==i))}
-                  onDragStart={onDragStart} onDrop={onDrop} />
+                  onDragStart={onDragStart} onDrop={onDrop}
+                  onSaveTransitionToLibrary={(cues) => saveTransitionToLibrary(nextPoseId, cues)}
+                />
               );
             })}
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3">
-          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
-          <Btn variant="primary" onClick={save} disabled={!name.trim()}>Save Vinyette</Btn>
+        <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-between gap-3">
+          <div>
+            {hasSidedItems && items.length > 0 && (
+              <Btn variant="secondary" size="sm" onClick={mirrorItems}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                Mirror L↔R
+              </Btn>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+            <Btn variant="primary" onClick={save} disabled={!name.trim()}>Save Vinyette</Btn>
+          </div>
         </div>
       </div>
     </Modal>
@@ -804,12 +987,11 @@ function VinyettesPage() {
     setShowForm(false); setEditing(null);
   };
   const viewSteps = (v) => {
-    const steps = v.items.map((item,i) => ({
+    const steps = v.items.map((item) => ({
       pose: poses.find(p=>p.id===item.poseId),
       cues: item.cues,
       side: item.side||'',
-      transitionCue: item.transitionCue,
-      transitionBreath: item.transitionBreath,
+      transition: item.transition || emptyTransition(),
     })).filter(s=>s.pose);
     setViewing({ title: v.name, steps });
   };
@@ -878,15 +1060,17 @@ function VinyettesPage() {
 
 // ─── Class Form Modal ─────────────────────────────────────────────────────────
 function ClassFormModal({ cls, onSave, onClose }) {
-  const { poses, vinyettes, addVinyette: saveVinyette } = useApp();
+  const { poses, vinyettes, transitions, addVinyette: saveVinyette, saveTransitionToLibrary } = useApp();
   const [name, setName] = useState(cls?.name || '');
-  const [items, setItems] = useState(cls?.items ? cls.items.map(i=>({...i, cues: i.cues ? [...i.cues] : undefined})) : []);
+  const [items, setItems] = useState(cls?.items ? cls.items.map(i=>({...i, cues: i.cues ? [...i.cues] : undefined, transition: i.transition ? {...i.transition, cues:[...(i.transition.cues||[])]} : (i.type !== 'section' ? emptyTransition() : undefined)})) : []);
   const [q, setQ] = useState('');
+  const [catFilter, setCatFilter] = useState([]);
   const [pickerTab, setPickerTab] = useState('poses');
   const [expandedVinyettes, setExpandedVinyettes] = useState({});
   const [collapsedSections, setCollapsedSections] = useState({});
   const [newSectionName, setNewSectionName] = useState('');
   const [savingSection, setSavingSection] = useState(null); // {idx, name}
+  const [deletingSection, setDeletingSection] = useState(null); // section index
   const { onDragStart, onDrop } = useDragSort(items, setItems);
 
   // For each item index, find its parent section index (null if no section above it)
@@ -897,11 +1081,23 @@ function ClassFormModal({ cls, onSave, onClose }) {
     return map;
   }, [items]);
 
-  const filteredPoses = useMemo(()=>poses.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[poses,q]);
+  const filteredPoses = useMemo(()=>poses.filter(p=>{
+    if(!p.name.toLowerCase().includes(q.toLowerCase())) return false;
+    if(catFilter.length>0 && !catFilter.some(c=>p.categories?.includes(c))) return false;
+    return true;
+  }),[poses,q,catFilter]);
   const filteredVinyettes = useMemo(()=>vinyettes.filter(v=>v.name.toLowerCase().includes(q.toLowerCase())),[vinyettes,q]);
 
-  const addPose = (p) => setItems(it=>[...it, {type:'pose', refId:p.id, cues:p.cues.slice(0,2), side:'', transitionCue:'', transitionBreath:''}]);
-  const addVinyette = (v) => setItems(it=>[...it, {type:'vinyette', refId:v.id, cues:[], side:'', transitionCue:'', transitionBreath:''}]);
+  const addPose = (p) => setItems(it => {
+    const prevPose = [...it].reverse().find(x => x.type === 'pose');
+    const prevPoseId = prevPose ? prevPose.refId : null;
+    const match = lookupTransition(transitions, prevPoseId, p.id);
+    const transition = match
+      ? { libraryId: match.id, cues: match.cues.map(c=>({...c})), enabled: true }
+      : emptyTransition();
+    return [...it, {type:'pose', refId:p.id, cues:p.cues.slice(0,2), side:'', transition}];
+  });
+  const addVinyette = (v) => setItems(it=>[...it, {type:'vinyette', refId:v.id, cues:[], side:'', transition: emptyTransition()}]);
   const addSection = () => {
     const n = newSectionName.trim() || 'New Section';
     setItems(it=>[...it, {type:'section', name:n}]);
@@ -930,10 +1126,52 @@ function ClassFormModal({ cls, onSave, onClose }) {
     const sectionItems = getSectionItems(savingSection.idx);
     const vinyetteItems = sectionItems
       .filter(it => it.type === 'pose')
-      .map(it => ({ poseId: it.refId, cues: [...it.cues], side: it.side||'', transitionCue: it.transitionCue, transitionBreath: it.transitionBreath }));
+      .map(it => ({ poseId: it.refId, cues: [...it.cues], side: it.side||'', transition: it.transition ? {...it.transition, cues:[...(it.transition.cues||[])]} : emptyTransition() }));
     if (vinyetteItems.length === 0) { setSavingSection(null); return; }
     saveVinyette({ id: uid(), name: vName, items: vinyetteItems });
     setSavingSection(null);
+  };
+
+  const deleteSection = (sectionIdx) => {
+    setItems(it => {
+      // Delete the header + everything up to (not including) the next section header
+      let end = sectionIdx + 1;
+      while (end < it.length && it[end].type !== 'section') end++;
+      return [...it.slice(0, sectionIdx), ...it.slice(end)];
+    });
+    setDeletingSection(null);
+  };
+
+  const setSectionSide = (sectionIdx, side) => {
+    setItems(it => {
+      // Recompute sectionOf inline to avoid stale closure
+      const sectMap = {};
+      let cur = null;
+      it.forEach((item, i) => { if (item.type === 'section') { cur = i; sectMap[i] = null; } else { sectMap[i] = cur; } });
+      return it.map((item, i) => {
+        if (item.type !== 'pose') return item;
+        if (sectMap[i] !== sectionIdx) return item;
+        const pose = poses.find(p => p.id === item.refId);
+        if (!pose?.isSided) return item;
+        return { ...item, side };
+      });
+    });
+  };
+
+  const copyMirroredSection = (sectionIdx) => {
+    const sectionItem = items[sectionIdx];
+    const sectionItems = getSectionItems(sectionIdx);
+    const mirrored = [
+      { type: 'section', name: sectionItem.name + ' (Mirrored)' },
+      ...sectionItems.map(item => ({
+        ...item,
+        side: flipSide(item.side || ''),
+        transition: item.transition ? { ...item.transition, cues: [...(item.transition.cues||[])] } : emptyTransition()
+      }))
+    ];
+    // Insert after last item of current section
+    const lastIdx = sectionIdx + sectionItems.length;
+    setItems(it => [...it.slice(0, lastIdx+1), ...mirrored, ...it.slice(lastIdx+1)]);
   };
 
   return (
@@ -961,6 +1199,7 @@ function ClassFormModal({ cls, onSave, onClose }) {
                   className="w-full pl-8 pr-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:border-sage-300 transition-all" />
               </div>
             </div>
+            {pickerTab==='poses' && <CategoryFilter selected={catFilter} onChange={setCatFilter} />}
             <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
               {pickerTab==='poses' && filteredPoses.map(p=>(
                 <button key={p.id} onClick={()=>addPose(p)}
@@ -1008,8 +1247,11 @@ function ClassFormModal({ cls, onSave, onClose }) {
 
               if (item.type==='section') {
                 const isSaving = savingSection?.idx === i;
+                const isDeleting = deletingSection === i;
                 const isCollapsed = !!collapsedSections[i];
                 const sectionPoseCount = getSectionItems(i).filter(x=>x.type==='pose').length;
+                const hasSideablePoses = getSectionItems(i).some(x => x.type==='pose' && poses.find(p=>p.id===x.refId)?.isSided);
+                const hasSidedInSection = getSectionItems(i).some(x => x.type==='pose' && (x.side === 'right' || x.side === 'left'));
                 return (
                   <div key={i} draggable onDragStart={()=>onDragStart(i)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(i)}
                     className="rounded-xl overflow-hidden shadow-sm">
@@ -1027,14 +1269,44 @@ function ClassFormModal({ cls, onSave, onClose }) {
                       {isCollapsed && sectionPoseCount > 0 && (
                         <span className="text-xs text-stone-400 bg-stone-600 px-2 py-0.5 rounded-full shrink-0">{sectionPoseCount} pose{sectionPoseCount!==1?'s':''}</span>
                       )}
+                      {hasSideablePoses && !isSaving && (
+                        <div className="flex gap-0.5 shrink-0">
+                          {[['left','◀ L'],['right','R ▶']].map(([side, label]) => (
+                            <button key={side} type="button" onClick={()=>setSectionSide(i, side)}
+                              className="text-xs px-2 py-0.5 rounded font-medium bg-stone-600 text-stone-300 hover:bg-sage-600 hover:text-white transition-all">
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {hasSidedInSection && !isSaving && (
+                        <button onClick={()=>copyMirroredSection(i)}
+                          className="shrink-0 flex items-center gap-1 text-xs text-stone-300 hover:text-terra-300 bg-stone-600 hover:bg-stone-500 px-2 py-1 rounded-lg transition-colors">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                          Mirror
+                        </button>
+                      )}
                       {sectionPoseCount > 0 && !isSaving && !isCollapsed && (
                         <button onClick={()=>setSavingSection({idx:i, name:item.name})}
                           className="shrink-0 flex items-center gap-1 text-xs text-stone-300 hover:text-sage-300 bg-stone-600 hover:bg-stone-500 px-2 py-1 rounded-lg transition-colors">
                           {Icon.flower} Save as vinyette
                         </button>
                       )}
-                      <button onClick={()=>setItems(it=>it.filter((_,j)=>j!==i))} className="text-stone-500 hover:text-red-400 transition-colors ml-1">{Icon.x}</button>
+                      <button onClick={()=>{ setSavingSection(null); setDeletingSection(i); }} className="text-stone-500 hover:text-red-400 transition-colors ml-1">{Icon.x}</button>
                     </div>
+                    {isDeleting && (
+                      <div className="flex items-center gap-2 bg-red-950/60 px-3 py-2.5 border-t border-red-900/40">
+                        <span className="text-xs text-red-300 flex-1">
+                          Delete <span className="font-semibold">"{item.name}"</span>
+                          {sectionPoseCount > 0 && <> and {sectionPoseCount} pose{sectionPoseCount!==1?'s':''}</>}?
+                        </span>
+                        <button onClick={()=>deleteSection(i)}
+                          className="shrink-0 text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+                          Delete
+                        </button>
+                        <button onClick={()=>setDeletingSection(null)} className="shrink-0 text-red-400 hover:text-white transition-colors">{Icon.x}</button>
+                      </div>
+                    )}
                     {isSaving && (
                       <div className="flex items-center gap-2 bg-stone-800 px-3 py-2.5 border-t border-stone-600">
                         <span className="text-xs text-stone-400 shrink-0">Vinyette name:</span>
@@ -1094,19 +1366,15 @@ function ClassFormModal({ cls, onSave, onClose }) {
                           )}
                         </div>
                         {!isLast && (
-                          <div className="mx-4 py-3 border-t border-dashed border-terra-200 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded-full bg-terra-100 flex items-center justify-center shrink-0"><div className="w-1.5 h-1.5 rounded-full bg-terra-400"/></div>
-                              <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Transition</p>
-                            </div>
-                            <input value={item.transitionCue} onChange={(e)=>setItems(it=>it.map((x,j)=>j===i?{...x,transitionCue:e.target.value}:x))}
-                              placeholder="Describe how to move to next segment…"
-                              className="w-full text-sm border border-terra-200 rounded-lg px-3 py-2 focus:border-terra-300 transition-all bg-white" />
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-stone-400">On:</span>
-                              <BreathToggle value={item.transitionBreath} onChange={(v)=>setItems(it=>it.map((x,j)=>j===i?{...x,transitionBreath:v}:x))} />
-                            </div>
-                          </div>
+                          <TransitionSlot
+                            transition={item.transition || emptyTransition()}
+                            onTransitionChange={(t) => setItems(it=>it.map((x,j)=>j===i?{...x,transition:t}:x))}
+                            onSaveToLibrary={(cues) => {
+                              const nextItem = items[i+1];
+                              const nextPoseId = nextItem?.type==='pose' ? nextItem.refId : null;
+                              saveTransitionToLibrary(nextPoseId, cues);
+                            }}
+                          />
                         )}
                       </>
                     )}
@@ -1115,12 +1383,16 @@ function ClassFormModal({ cls, onSave, onClose }) {
               }
               // pose item
               const pose = poses.find(p=>p.id===item.refId);
+              const nextItem2 = items[i+1];
+              const nextPoseId2 = nextItem2?.type==='pose' ? nextItem2.refId : null;
               return (
                 <SeqItemRow key={i} item={item} pose={pose} index={i} total={items.length}
                   isLast={isLast} classMode
                   onChange={(v)=>setItems(it=>it.map((x,j)=>j===i?v:x))}
                   onRemove={()=>setItems(it=>it.filter((_,j)=>j!==i))}
-                  onDragStart={onDragStart} onDrop={onDrop} />
+                  onDragStart={onDragStart} onDrop={onDrop}
+                  onSaveTransitionToLibrary={(cues) => saveTransitionToLibrary(nextPoseId2, cues)}
+                />
               );
             })}
           </div>
@@ -1145,15 +1417,14 @@ function ClassOutlineModal({ cls, sections, onPlay, onEdit, onClose }) {
     sectionItems.forEach((item) => {
       if (item.type==='pose') {
         const pose = poses.find(p=>p.id===item.refId);
-        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transitionCue:item.transitionCue, transitionBreath:item.transitionBreath });
+        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transition: item.transition || emptyTransition() });
       } else if (item.type==='vinyette') {
         const v = vinyettes.find(x=>x.id===item.refId);
         if (v) v.items.forEach((vi, j) => {
           const pose = poses.find(p=>p.id===vi.poseId);
           if (pose) steps.push({
             pose, cues:vi.cues, side:vi.side||'',
-            transitionCue: j<v.items.length-1 ? vi.transitionCue : item.transitionCue,
-            transitionBreath: j<v.items.length-1 ? vi.transitionBreath : item.transitionBreath,
+            transition: j<v.items.length-1 ? (vi.transition || emptyTransition()) : (item.transition || emptyTransition()),
             groupName: v.name,
           });
         });
@@ -1242,11 +1513,15 @@ function ClassOutlineModal({ cls, sections, onPlay, onEdit, onClose }) {
                                 {item.cues.length > 0 && <p className="text-xs text-stone-400 truncate">{item.cues[0]}{item.cues.length>1?` +${item.cues.length-1} more`:''}</p>}
                               </div>
                             </div>
-                            {!isLastItem && (item.transitionCue || item.transitionBreath) && (
-                              <div className="flex items-center gap-2 px-4 py-1.5 bg-terra-50/60">
-                                <div className="w-3 h-3 rounded-full border-2 border-terra-300 shrink-0 ml-3" />
-                                {item.transitionBreath && <span className="text-xs font-medium text-terra-500 capitalize">{item.transitionBreath} breath</span>}
-                                {item.transitionCue && <span className="text-xs text-terra-400">· {item.transitionCue}</span>}
+                            {!isLastItem && item.transition?.enabled && item.transition?.cues?.length > 0 && (
+                              <div className="px-4 py-1.5 bg-terra-50/60">
+                                {item.transition.cues.map((cue, ci) => (
+                                  <div key={ci} className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full border-2 border-terra-300 shrink-0 ml-3" />
+                                    {cue.breath && <span className="text-xs font-medium text-terra-500 capitalize">{cue.breath} breath</span>}
+                                    {cue.text && <span className="text-xs text-terra-400">{cue.breath ? '· ' : ''}{cue.text}</span>}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -1271,11 +1546,15 @@ function ClassOutlineModal({ cls, sections, onPlay, onEdit, onClose }) {
                                 ))}
                               </div>
                             </div>
-                            {!isLastItem && (item.transitionCue || item.transitionBreath) && (
-                              <div className="flex items-center gap-2 px-4 py-1.5 bg-terra-50/60">
-                                <div className="w-3 h-3 rounded-full border-2 border-terra-300 shrink-0 ml-3" />
-                                {item.transitionBreath && <span className="text-xs font-medium text-terra-500 capitalize">{item.transitionBreath} breath</span>}
-                                {item.transitionCue && <span className="text-xs text-terra-400">· {item.transitionCue}</span>}
+                            {!isLastItem && item.transition?.enabled && item.transition?.cues?.length > 0 && (
+                              <div className="px-4 py-1.5 bg-terra-50/60">
+                                {item.transition.cues.map((cue, ci) => (
+                                  <div key={ci} className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full border-2 border-terra-300 shrink-0 ml-3" />
+                                    {cue.breath && <span className="text-xs font-medium text-terra-500 capitalize">{cue.breath} breath</span>}
+                                    {cue.text && <span className="text-xs text-terra-400">{cue.breath ? '· ' : ''}{cue.text}</span>}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -1318,7 +1597,7 @@ function ClassesPage() {
         steps.push({ isSection: true, sectionName: item.name });
       } else if (item.type==='pose') {
         const pose = poses.find(p=>p.id===item.refId);
-        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transitionCue:item.transitionCue, transitionBreath:item.transitionBreath });
+        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transition: item.transition || emptyTransition() });
       } else if (item.type==='vinyette') {
         const v = vinyettes.find(x=>x.id===item.refId);
         if (v) {
@@ -1326,8 +1605,7 @@ function ClassesPage() {
             const pose = poses.find(p=>p.id===vi.poseId);
             if (pose) steps.push({
               pose, cues:vi.cues, side:vi.side||'',
-              transitionCue: j<v.items.length-1 ? vi.transitionCue : item.transitionCue,
-              transitionBreath: j<v.items.length-1 ? vi.transitionBreath : item.transitionBreath,
+              transition: j<v.items.length-1 ? (vi.transition || emptyTransition()) : (item.transition || emptyTransition()),
               groupName: v.name,
             });
           });
@@ -1441,12 +1719,12 @@ function ClassesPage() {
 
 // ─── Import/Export ─────────────────────────────────────────────────────────────
 function ImportExportModal({ onClose }) {
-  const { poses, vinyettes, classes, importAll } = useApp();
+  const { poses, transitions, vinyettes, classes, importAll } = useApp();
   const [importText, setImportText] = useState('');
   const [msg, setMsg] = useState('');
 
   const doExport = () => {
-    const data = JSON.stringify({ poses, vinyettes, classes }, null, 2);
+    const data = JSON.stringify({ poses, transitions, vinyettes, classes }, null, 2);
     const blob = new Blob([data], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download='yoga-data.json'; a.click();
@@ -1477,7 +1755,7 @@ function ImportExportModal({ onClose }) {
           <p className="text-sm font-medium text-stone-700 mb-2">Import data</p>
           <p className="text-xs text-stone-400 mb-3">Paste JSON below (same format as exported). This will merge with existing data.</p>
           <textarea value={importText} onChange={(e)=>setImportText(e.target.value)} rows={6}
-            placeholder='{"poses": [...], "vinyettes": [...], "classes": [...]}'
+            placeholder='{"poses": [...], "transitions": [...], "vinyettes": [...], "classes": [...]}'
             className="w-full border border-stone-200 rounded-xl px-4 py-3 text-xs font-mono focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all resize-none" />
           {msg && <p className={`text-sm mt-2 ${msg.includes('success')?'text-sage-600':'text-red-500'}`}>{msg}</p>}
           <div className="mt-3">
@@ -1489,10 +1767,253 @@ function ImportExportModal({ onClose }) {
   );
 }
 
+// ─── Transition Form Modal ────────────────────────────────────────────────────
+function TransitionFormModal({ transition, onSave, onClose }) {
+  const { poses } = useApp();
+  const [form, setForm] = useState({
+    name: transition?.name || '',
+    fromPoseId: transition?.fromPoseId || null,
+    toPoseId: transition?.toPoseId || null,
+    cues: transition?.cues ? transition.cues.map(c=>({...c})) : [],
+  });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const save = () => {
+    if (!form.name.trim()) return;
+    onSave({ ...transition, ...form, id: transition?.id || uid() });
+  };
+  return (
+    <Modal title={transition ? 'Edit Transition' : 'New Transition'} onClose={onClose}>
+      <div className="p-6 space-y-5">
+        <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">Transition Name *</label>
+          <input value={form.name} onChange={(e)=>set('name',e.target.value)}
+            className="w-full border border-stone-200 rounded-xl px-4 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all text-stone-800 font-medium"
+            placeholder="e.g. Step into Warrior 1" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">From Pose (optional)</label>
+            <select value={form.fromPoseId||''} onChange={(e)=>set('fromPoseId', e.target.value||null)}
+              className="w-full border border-stone-200 rounded-xl px-3 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all text-sm">
+              <option value="">— Any pose</option>
+              {poses.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">To Pose (optional)</label>
+            <select value={form.toPoseId||''} onChange={(e)=>set('toPoseId', e.target.value||null)}
+              className="w-full border border-stone-200 rounded-xl px-3 py-2.5 focus:border-sage-400 focus:ring-2 focus:ring-sage-100 transition-all text-sm">
+              <option value="">— Generic</option>
+              {poses.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Cue Steps</label>
+          <TransitionCueEditor cues={form.cues} onChange={(v)=>set('cues',v)} />
+        </div>
+      </div>
+      <div className="px-6 py-4 border-t border-stone-100 flex justify-end gap-3 shrink-0">
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn variant="primary" onClick={save} disabled={!form.name.trim()}>Save Transition</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Transitions Page ─────────────────────────────────────────────────────────
+// ─── Pose Search Dropdown ─────────────────────────────────────────────────────
+function PoseSearchDropdown({ value, onChange, poses, placeholder }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selectedPose = value ? poses.find(p => p.id === value) : null;
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = useMemo(() =>
+    poses.filter(p => p.name.toLowerCase().includes(q.toLowerCase())),
+    [poses, q]
+  );
+
+  const select = (id) => { onChange(id); setOpen(false); setQ(''); };
+  const clear = (e) => { e.stopPropagation(); onChange(null); setQ(''); };
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(!open)}
+        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all text-left ${
+          open ? 'border-sage-400 ring-2 ring-sage-100' : 'border-stone-200 hover:border-stone-300'
+        } bg-white`}>
+        {selectedPose ? (
+          <>
+            <div className="w-5 h-5 rounded overflow-hidden bg-sage-100 shrink-0">
+              <PoseImg src={selectedPose.imageUrl} alt={selectedPose.name} className="w-full h-full object-cover" />
+            </div>
+            <span className="flex-1 truncate text-stone-800 font-medium">{selectedPose.name}</span>
+            <span onClick={clear} className="text-stone-300 hover:text-stone-500 transition-colors ml-auto">{Icon.x}</span>
+          </>
+        ) : (
+          <>
+            <span className="flex-1 text-stone-400">{placeholder}</span>
+            <span className="text-stone-300">{Icon.chevDown}</span>
+          </>
+        )}
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 w-full bg-white rounded-xl border border-stone-200 shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-stone-100">
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400">{Icon.search}</span>
+              <input autoFocus value={q} onChange={e => setQ(e.target.value)}
+                placeholder="Search poses…"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border border-stone-200 rounded-lg focus:border-sage-300 focus:ring-1 focus:ring-sage-100 transition-all" />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-auto scrollbar-thin">
+            <button type="button" onClick={() => select(null)}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-stone-50 transition-colors text-left ${!value ? 'text-sage-700 font-medium bg-sage-50' : 'text-stone-400 italic'}`}>
+              — Any pose
+            </button>
+            {filtered.map(p => (
+              <button key={p.id} type="button" onClick={() => select(p.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-sage-50 transition-colors text-left ${value===p.id ? 'bg-sage-50 text-sage-800 font-medium' : 'text-stone-700'}`}>
+                <div className="w-6 h-6 rounded overflow-hidden bg-sage-100 shrink-0">
+                  <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                </div>
+                <span className="truncate">{p.name}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && <p className="text-xs text-stone-400 p-3 text-center">No poses found</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TransitionsPage() {
+  const { poses, transitions, saveTransition, deleteTransition } = useApp();
+  const [filterFrom, setFilterFrom] = useState(null);
+  const [filterTo, setFilterTo] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [delId, setDelId] = useState(null);
+
+  const filtered = useMemo(() => transitions.filter(t => {
+    if (filterFrom !== null && t.fromPoseId !== filterFrom) return false;
+    if (filterTo !== null && t.toPoseId !== filterTo) return false;
+    return true;
+  }), [transitions, filterFrom, filterTo]);
+
+  const hasFilters = filterFrom !== null || filterTo !== null;
+  const handleSave = (t) => { saveTransition(t); setShowForm(false); setEditing(null); };
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      {/* Filter bar */}
+      <div className="flex items-end gap-3 mb-6 flex-wrap">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex-1 min-w-[160px] max-w-[220px]">
+            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">From pose</p>
+            <PoseSearchDropdown value={filterFrom} onChange={setFilterFrom} poses={poses} placeholder="Any pose" />
+          </div>
+          <div className="mt-5 text-stone-400 shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+          <div className="flex-1 min-w-[160px] max-w-[220px]">
+            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-1.5">To pose</p>
+            <PoseSearchDropdown value={filterTo} onChange={setFilterTo} poses={poses} placeholder="Any pose" />
+          </div>
+          {hasFilters && (
+            <button onClick={() => { setFilterFrom(null); setFilterTo(null); }}
+              className="mt-5 text-xs text-stone-400 hover:text-stone-600 transition-colors shrink-0 flex items-center gap-1">
+              {Icon.x} Clear
+            </button>
+          )}
+        </div>
+        <Btn variant="primary" onClick={() => { setEditing(null); setShowForm(true); }}>{Icon.plus} New Transition</Btn>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="font-display text-xl text-stone-400 mb-2">{hasFilters ? 'No transitions match' : 'No transitions yet'}</p>
+          <p className="text-sm text-stone-400 mb-5">{hasFilters ? 'Try different pose filters' : 'Add entry/movement cues for moving between poses'}</p>
+          {!hasFilters && <Btn variant="primary" onClick={() => setShowForm(true)}>{Icon.plus} New Transition</Btn>}
+        </div>
+      ) : (
+        <div className="space-y-3 max-w-2xl">
+          {filtered.map(t => {
+            const fromPose = t.fromPoseId ? poses.find(p => p.id === t.fromPoseId) : null;
+            const toPose = t.toPoseId ? poses.find(p => p.id === t.toPoseId) : null;
+            return (
+              <div key={t.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all p-4">
+                <div className="flex items-start gap-3">
+                  {/* From → To visual */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-sage-100 border border-stone-100">
+                      {fromPose
+                        ? <PoseImg src={fromPose.imageUrl} alt={fromPose.name} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-stone-300 text-xs font-medium">Any</div>}
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-terra-400 shrink-0"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-terra-50 border border-terra-100">
+                      {toPose
+                        ? <PoseImg src={toPose.imageUrl} alt={toPose.name} className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center text-terra-300 text-xs font-medium">Any</div>}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-semibold text-stone-800 mb-0.5">{t.name}</p>
+                    <div className="flex items-center gap-1.5 text-xs text-stone-400 mb-2 flex-wrap">
+                      {fromPose ? <span className="bg-stone-100 px-2 py-0.5 rounded">{fromPose.name}</span> : <span className="italic">Any pose</span>}
+                      <span>→</span>
+                      {toPose ? <span className="bg-terra-50 text-terra-600 px-2 py-0.5 rounded">{toPose.name}</span> : <span className="italic">Generic</span>}
+                    </div>
+                    {t.cues.length > 0 && (
+                      <ul className="space-y-0.5">
+                        {t.cues.slice(0, 3).map((cue, ci) => (
+                          <li key={ci} className="flex items-start gap-2 text-xs text-stone-500">
+                            {cue.breath && <span className={`shrink-0 font-medium ${cue.breath==='in' ? 'text-sage-500' : 'text-terra-500'}`}>{cue.breath==='in' ? '↑' : '↓'}</span>}
+                            <span>{cue.text}</span>
+                          </li>
+                        ))}
+                        {t.cues.length > 3 && <li className="text-xs text-stone-400">+{t.cues.length - 3} more cues</li>}
+                      </ul>
+                    )}
+                    {t.cues.length === 0 && <p className="text-xs text-stone-400 italic">No cue steps yet</p>}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Btn variant="ghost" size="xs" onClick={() => { setEditing(t); setShowForm(true); }}>{Icon.edit}</Btn>
+                    <Btn variant="ghost" size="xs" onClick={() => setDelId(t.id)} className="hover:text-red-400">{Icon.trash}</Btn>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(showForm || editing) && (
+        <TransitionFormModal transition={editing} onSave={handleSave} onClose={() => { setShowForm(false); setEditing(null); }} />
+      )}
+      {delId && (
+        <ConfirmDialog message="Delete this transition? Sequences using it will keep their current cues."
+          onConfirm={() => { deleteTransition(delId); setDelId(null); }} onCancel={() => setDelId(null)} />
+      )}
+    </div>
+  );
+}
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 function Sidebar({ active, onNav }) {
   const nav = [
     { id:'poses', label:'Pose Library', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
+    { id:'transitions', label:'Transition Library', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/><path d="M5.6 5.6l4.2 4.2M14.2 14.2l4.2 4.2"/><path d="M18.4 5.6l-4.2 4.2M9.8 14.2l-4.2 4.2"/></svg> },
     { id:'vinyettes', label:'Vinyettes', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
     { id:'classes', label:'Full Classes', icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
   ];
@@ -1529,10 +2050,12 @@ function Sidebar({ active, onNav }) {
 // ─── App Provider ─────────────────────────────────────────────────────────────
 function AppProvider({ children }) {
   const [poses, setPoses] = useState(() => storage.load(KEYS.poses) || []);
+  const [transitions, setTransitions] = useState(() => storage.load(KEYS.transitions) || []);
   const [vinyettes, setVinyettes] = useState(() => storage.load(KEYS.vinyettes) || []);
   const [classes, setClasses] = useState(() => storage.load(KEYS.classes) || []);
 
   useEffect(() => { storage.save(KEYS.poses, poses); }, [poses]);
+  useEffect(() => { storage.save(KEYS.transitions, transitions); }, [transitions]);
   useEffect(() => { storage.save(KEYS.vinyettes, vinyettes); }, [vinyettes]);
   useEffect(() => { storage.save(KEYS.classes, classes); }, [classes]);
 
@@ -1542,27 +2065,101 @@ function AppProvider({ children }) {
       if (item.type !== 'poseName') return item;
       const pose = knownPoses.find(p => p.name === item.name);
       if (!pose) return null;
-      return { type: 'pose', refId: pose.id, cues: [...pose.cues], transitionCue: '', transitionBreath: '' };
+      return { type: 'pose', refId: pose.id, cues: [...pose.cues], transition: emptyTransition() };
     }).filter(Boolean);
     return { id: uid(), name: seedClass.name, items };
   };
 
-  // Seed on first run
+  // Seed + migration on first run
   useEffect(() => {
     const posesAlreadySeeded = !!storage.load(KEYS.seeded);
     const classAlreadySeeded = !!storage.load(KEYS.classSeeded);
+    const transitionsAlreadySeeded = !!storage.load(KEYS.transitionsSeeded);
+    const alreadyMigrated = !!storage.load(KEYS.migratedV2);
 
     let knownPoses = storage.load(KEYS.poses) || [];
+    let knownVinyettes = storage.load(KEYS.vinyettes) || [];
+    let knownClasses = storage.load(KEYS.classes) || [];
+    let knownTransitions = storage.load(KEYS.transitions) || [];
 
+    // ── Migration v2: remove "in 2" poses, convert transitionCue → transition ──
+    if (!alreadyMigrated) {
+      // 1. Remove "in 2" poses
+      const in2Names = new Set(SEED_TRANSITIONS.map(t => t.name).concat(['Prasarita into']));
+      const removedIds = new Set(knownPoses.filter(p => in2Names.has(p.name) || p.name.endsWith(' in 2')).map(p => p.id));
+      knownPoses = knownPoses.filter(p => !removedIds.has(p.id));
+
+      // 2. Clean vinyettes: remove items referencing removed poses, convert transition fields
+      knownVinyettes = knownVinyettes.map(v => ({
+        ...v,
+        items: v.items
+          .filter(it => !removedIds.has(it.poseId))
+          .map(it => {
+            if (it.transition) return it; // already migrated
+            const transition = it.transitionCue
+              ? { libraryId: null, cues: [{ text: it.transitionCue, breath: it.transitionBreath || '' }], enabled: true }
+              : emptyTransition();
+            const { transitionCue, transitionBreath, ...rest } = it;
+            return { ...rest, transition };
+          })
+      }));
+
+      // 3. Clean classes: same treatment for pose items
+      knownClasses = knownClasses.map(c => ({
+        ...c,
+        items: c.items
+          .filter(it => !(it.type === 'pose' && removedIds.has(it.refId)))
+          .map(it => {
+            if (it.type === 'section') return it;
+            if (it.transition) return it; // already migrated
+            const transition = it.transitionCue
+              ? { libraryId: null, cues: [{ text: it.transitionCue, breath: it.transitionBreath || '' }], enabled: true }
+              : emptyTransition();
+            const { transitionCue, transitionBreath, ...rest } = it;
+            return { ...rest, transition };
+          })
+      }));
+
+      setPoses(knownPoses);
+      storage.save(KEYS.poses, knownPoses);
+      setVinyettes(knownVinyettes);
+      storage.save(KEYS.vinyettes, knownVinyettes);
+      setClasses(knownClasses);
+      storage.save(KEYS.classes, knownClasses);
+      storage.save(KEYS.migratedV2, true);
+    }
+
+    // ── Seed poses ──
     if (!posesAlreadySeeded && SEED_POSES.length > 0) {
       knownPoses = SEED_POSES.map(p => ({ ...p, id: uid() }));
       setPoses(knownPoses);
+      storage.save(KEYS.poses, knownPoses);
       storage.save(KEYS.seeded, true);
     }
 
+    // ── Seed transitions ──
+    if (!transitionsAlreadySeeded && SEED_TRANSITIONS.length > 0) {
+      const seededTransitions = SEED_TRANSITIONS.map(t => {
+        const toPose = t.toPoseName ? knownPoses.find(p => p.name === t.toPoseName) : null;
+        return {
+          id: uid(),
+          name: t.name,
+          fromPoseId: null,
+          toPoseId: toPose ? toPose.id : null,
+          cues: t.cues.map(text => ({ text, breath: '' })),
+        };
+      });
+      knownTransitions = seededTransitions;
+      setTransitions(knownTransitions);
+      storage.save(KEYS.transitions, knownTransitions);
+      storage.save(KEYS.transitionsSeeded, true);
+    }
+
+    // ── Seed class ──
     if (!classAlreadySeeded && SEED_CLASS) {
       const seededClass = resolveClass(SEED_CLASS, knownPoses);
       setClasses([seededClass]);
+      storage.save(KEYS.classes, [seededClass]);
       storage.save(KEYS.classSeeded, true);
     }
   }, []);
@@ -1586,10 +2183,35 @@ function AppProvider({ children }) {
   const updateClass = (c) => setClasses(cs => cs.map(x => x.id===c.id ? c : x));
   const deleteClass = (id) => setClasses(cs => cs.filter(c => c.id!==id));
 
-  const importAll = ({ poses: p, vinyettes: v, classes: c }) => {
+  const saveTransition = (t) => setTransitions(ts => {
+    const exists = ts.find(x => x.id === t.id);
+    return exists ? ts.map(x => x.id===t.id ? t : x) : [...ts, t];
+  });
+  const deleteTransition = (id) => setTransitions(ts => ts.filter(t => t.id!==id));
+
+  // Called when user clicks "Save to transition library" from a sequence slot
+  const saveTransitionToLibrary = (toPoseId, cues) => {
+    setTransitions(ts => {
+      // Check if a generic transition for this toPoseId already exists
+      const existing = ts.find(t => t.toPoseId === toPoseId && t.fromPoseId === null);
+      if (existing) {
+        return ts.map(t => t.id === existing.id ? { ...t, cues } : t);
+      }
+      const toPose = poses.find(p => p.id === toPoseId);
+      const name = toPose ? toPose.name + ' in 2' : 'New Transition';
+      return [...ts, { id: uid(), name, fromPoseId: null, toPoseId: toPoseId || null, cues }];
+    });
+  };
+
+  const importAll = ({ poses: p, transitions: tr, vinyettes: v, classes: c }) => {
     if (p) setPoses(existing => {
       const names = new Set(existing.map(x=>x.name));
       const newOnes = p.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
+      return [...existing, ...newOnes];
+    });
+    if (tr) setTransitions(existing => {
+      const names = new Set(existing.map(x=>x.name));
+      const newOnes = tr.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
       return [...existing, ...newOnes];
     });
     if (v) setVinyettes(existing => {
@@ -1606,6 +2228,7 @@ function AppProvider({ children }) {
 
   const ctx = {
     poses, addPose, updatePose, deletePose,
+    transitions, saveTransition, deleteTransition, saveTransitionToLibrary,
     vinyettes, addVinyette, updateVinyette, deleteVinyette,
     classes, addClass, updateClass, deleteClass,
     importAll,
@@ -1623,7 +2246,7 @@ function App() {
     setView(id);
   };
 
-  const titles = { poses:'Pose Library', vinyettes:'Vinyettes', classes:'Full Classes' };
+  const titles = { poses:'Pose Library', transitions:'Transition Library', vinyettes:'Vinyettes', classes:'Full Classes' };
 
   return (
     <AppProvider>
@@ -1634,6 +2257,7 @@ function App() {
             <h1 className="font-display text-xl text-stone-800">{titles[view]}</h1>
           </div>
           {view==='poses' && <PosesPage />}
+          {view==='transitions' && <TransitionsPage />}
           {view==='vinyettes' && <VinyettesPage />}
           {view==='classes' && <ClassesPage />}
         </div>
