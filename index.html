@@ -46,7 +46,7 @@ const storage = {
   load: (key) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
   save: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 };
-const KEYS = { poses:'yt_poses', transitions:'yt_transitions', vinyettes:'yt_vinyettes', classes:'yt_classes', seeded:'yt_seeded', classSeeded:'yt_class_seeded', transitionsSeeded:'yt_transitions_seeded', migratedV2:'yt_migrated_v2' };
+const KEYS = { poses:'yt_poses', transitions:'yt_transitions', vinyettes:'yt_vinyettes', classes:'yt_classes', seeded:'yt_seeded', classSeeded:'yt_class_seeded', transitionsSeeded:'yt_transitions_seeded', migratedV2:'yt_migrated_v2', customCategories:'yt_custom_categories' };
 
 // ─── ID ─────────────────────────────────────────────────────────────────────
 let _id = 0;
@@ -314,11 +314,15 @@ function PoseFormModal({ pose, onSave, onClose }) {
     isSided: pose?.isSided || false,
     categories: pose?.categories ? [...pose.categories] : [],
     cues: pose?.cues ? [...pose.cues] : [],
+    variations: pose?.variations ? pose.variations.map(v => ({ ...v, cues: [...v.cues] })) : [],
   });
   const toggleCat = (cat) => set('categories',
     form.categories.includes(cat) ? form.categories.filter(c=>c!==cat) : [...form.categories, cat]
   );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const addVariation = () => set('variations', [...form.variations, { id: uid(), name: '', cues: [] }]);
+  const updateVariation = (vi, field, val) => set('variations', form.variations.map((v, i) => i === vi ? { ...v, [field]: val } : v));
+  const removeVariation = (vi) => set('variations', form.variations.filter((_, i) => i !== vi));
   const save = () => {
     if (!form.name.trim()) return;
     onSave({ ...pose, ...form, id: pose?.id || uid() });
@@ -383,6 +387,36 @@ function PoseFormModal({ pose, onSave, onClose }) {
           </div>
         </div>
         <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider">Variations</label>
+            <button type="button" onClick={addVariation}
+              className="flex items-center gap-1 text-xs text-sage-600 hover:text-sage-700 font-medium transition-colors">
+              {Icon.plus} Add variation
+            </button>
+          </div>
+          {form.variations.length === 0 && (
+            <p className="text-xs text-stone-400 italic">No variations yet — add a variation to give this pose alternate forms (e.g. Cactus Arms)</p>
+          )}
+          <div className="space-y-3">
+            {form.variations.map((variation, vi) => (
+              <div key={variation.id} className="border border-stone-200 rounded-xl p-3 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <input value={variation.name}
+                    onChange={(e) => updateVariation(vi, 'name', e.target.value)}
+                    placeholder="Variation name (e.g. Cactus Arms)"
+                    className="flex-1 text-sm border border-stone-200 rounded-lg px-3 py-1.5 focus:border-sage-400 focus:ring-1 focus:ring-sage-100 transition-all font-medium" />
+                  <button type="button" onClick={() => removeVariation(vi)}
+                    className="text-stone-300 hover:text-red-400 transition-colors p-1 rounded shrink-0">{Icon.x}</button>
+                </div>
+                <div>
+                  <p className="text-xs text-stone-400 mb-1.5">Variation cues</p>
+                  <CueList cues={variation.cues} onChange={(v) => updateVariation(vi, 'cues', v)} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
           <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Verbal Cues</label>
           <CueList cues={form.cues} onChange={(v)=>set('cues',v)} />
         </div>
@@ -418,7 +452,7 @@ function PoseDetailDrawer({ pose, onEdit, onClose }) {
             </div>
           )}
           {pose.cues.length > 0 && (
-            <div className="px-5 pt-4 pb-6">
+            <div className="px-5 pt-4">
               <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Verbal Cues</p>
               <ul className="space-y-2">
                 {pose.cues.map((c,i) => (
@@ -428,6 +462,28 @@ function PoseDetailDrawer({ pose, onEdit, onClose }) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {(pose.variations||[]).length > 0 && (
+            <div className="px-5 pt-4 pb-6">
+              <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-3">Variations</p>
+              <div className="space-y-3">
+                {pose.variations.map((v) => (
+                  <div key={v.id} className="border border-stone-100 rounded-xl p-3">
+                    <p className="text-sm font-medium text-terra-600 mb-1.5">{v.name || 'Unnamed variation'}</p>
+                    {v.cues.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {v.cues.map((c,i) => (
+                          <li key={i} className="flex gap-2 text-xs text-stone-600">
+                            <span className="w-1 h-1 rounded-full bg-terra-300 shrink-0 mt-1.5" />
+                            {c}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p className="text-xs text-stone-400 italic">No cues</p>}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -602,12 +658,14 @@ function CueSelector({ selected, allCues, onChange }) {
 
 // ─── Category Filter ─────────────────────────────────────────────────────────
 function CategoryFilter({ selected, onChange }) {
+  const { customCategories } = useApp();
+  const allCats = [...POSE_CATEGORIES, ...customCategories];
   const toggle = (cat) => onChange(
     selected.includes(cat) ? selected.filter(c => c !== cat) : [...selected, cat]
   );
   return (
     <div className="flex flex-wrap gap-1 px-2 py-2 border-b border-stone-100">
-      {POSE_CATEGORIES.map(cat => (
+      {allCats.map(cat => (
         <button key={cat} type="button" onClick={() => toggle(cat)}
           className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all leading-tight ${
             selected.includes(cat)
@@ -623,6 +681,46 @@ function CategoryFilter({ selected, onChange }) {
           ✕ clear
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── Category Chip Editor (editing context — includes custom + add-new) ───────
+function CategoryChipEditor({ selected, onChange }) {
+  const { customCategories, addCustomCategory } = useApp();
+  const allCats = [...POSE_CATEGORIES, ...customCategories];
+  const [newCat, setNewCat] = useState('');
+  const toggle = (cat) => onChange(
+    selected.includes(cat) ? selected.filter(c => c !== cat) : [...selected, cat]
+  );
+  const addNew = () => {
+    const trimmed = newCat.trim();
+    if (!trimmed) return;
+    addCustomCategory(trimmed);
+    if (!selected.includes(trimmed)) onChange([...selected, trimmed]);
+    setNewCat('');
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {allCats.map(cat => (
+          <button key={cat} type="button" onClick={() => toggle(cat)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+              selected.includes(cat)
+                ? 'bg-sage-500 text-white shadow-sm'
+                : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}>
+            {cat}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input value={newCat} onChange={e => setNewCat(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addNew())}
+          placeholder="Add custom category…"
+          className="flex-1 text-xs border border-stone-200 rounded-lg px-3 py-1.5 focus:border-sage-400 focus:ring-1 focus:ring-sage-100 transition-all" />
+        <Btn variant="secondary" size="xs" onClick={addNew} disabled={!newCat.trim()}>{Icon.plus} Add</Btn>
+      </div>
     </div>
   );
 }
@@ -696,6 +794,9 @@ function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart,
   if (!pose) return null;
   const sideLabel = item.side === 'right' ? 'Right' : item.side === 'left' ? 'Left' : null;
   const transition = item.transition || emptyTransition();
+  const activeVariation = item.variationId ? (pose.variations || []).find(v => v.id === item.variationId) : null;
+  // Cues pool: in classMode, use variation cues as allCues when a variation is selected
+  const allCues = activeVariation ? activeVariation.cues : pose.cues;
   return (
     <div draggable onDragStart={()=>onDragStart(index)} onDragOver={(e)=>{e.preventDefault();}} onDrop={()=>onDrop(index)}
       className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -705,7 +806,10 @@ function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart,
           <PoseImg src={pose.imageUrl} alt={pose.name} className="w-full h-full object-cover" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="font-medium text-sm text-stone-800 truncate block">{pose.name}</span>
+          <span className="font-medium text-sm text-stone-800 truncate block">
+            {pose.name}
+            {activeVariation && <span className="text-terra-600"> · {activeVariation.name}</span>}
+          </span>
           {sideLabel && <span className="text-xs text-sage-600 font-medium">{sideLabel} side</span>}
           {pose.isSided && !sideLabel && <span className="text-xs text-amber-500 font-medium">Side not set</span>}
         </div>
@@ -719,12 +823,31 @@ function SeqItemRow({ item, pose, index, total, onChange, onRemove, onDragStart,
           {pose.isSided && (
             <SideToggle value={item.side || ''} onChange={(v) => onChange({...item, side: v})} />
           )}
+          {(pose.variations || []).length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">Variation</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button type="button"
+                  onClick={() => onChange({...item, variationId: null, cues: classMode ? [] : [...pose.cues]})}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${!item.variationId ? 'bg-sage-500 text-white shadow-sm' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}>
+                  Base pose
+                </button>
+                {(pose.variations || []).map(v => (
+                  <button key={v.id} type="button"
+                    onClick={() => onChange({...item, variationId: v.id, cues: classMode ? [] : [...v.cues]})}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${item.variationId === v.id ? 'bg-terra-500 text-white shadow-sm' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}>
+                    {v.name || 'Unnamed variation'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-2">
               {classMode ? 'Class cues' : 'Cues for this pose'}
             </p>
             {classMode
-              ? <CueSelector selected={item.cues} allCues={pose.cues} onChange={(v) => onChange({...item, cues: v})} />
+              ? <CueSelector selected={item.cues} allCues={allCues} onChange={(v) => onChange({...item, cues: v})} />
               : <CueList cues={item.cues} onChange={(v)=>onChange({...item, cues:v})} />
             }
           </div>
@@ -805,6 +928,9 @@ function SequenceViewer({ title, steps, onClose }) {
           <PoseImg src={step.pose.imageUrl} alt={step.pose.name} />
         </div>
         <h2 className="font-display text-3xl text-white mb-1 text-center">{step.pose.name}</h2>
+        {step.variationName && (
+          <p className="text-terra-300 text-sm font-medium mb-1 text-center">{step.variationName}</p>
+        )}
         {step.side
           ? <span className={`mb-4 px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wider ${step.side==='right' ? 'bg-sage-700/60 text-sage-200' : 'bg-terra-800/60 text-terra-200'}`}>
               {step.side === 'right' ? '▶ Right side' : '◀ Left side'}
@@ -861,11 +987,17 @@ function SequenceViewer({ title, steps, onClose }) {
 
 // ─── Vinyette Form Modal ──────────────────────────────────────────────────────
 function VinyetteFormModal({ vinyette, onSave, onClose }) {
-  const { poses, transitions, saveTransitionToLibrary } = useApp();
+  const { poses, transitions, saveTransitionToLibrary, addPose: ctxAddPose, updatePose: ctxUpdatePose } = useApp();
   const [name, setName] = useState(vinyette?.name || '');
   const [items, setItems] = useState(vinyette?.items ? vinyette.items.map(i=>({...i, cues:[...i.cues], transition: i.transition ? {...i.transition, cues:[...( i.transition.cues||[])]} : emptyTransition()})) : []);
   const [q, setQ] = useState('');
   const [catFilter, setCatFilter] = useState([]);
+  const [expandedPoses, setExpandedPoses] = useState({});
+  const [quickAddVariationFor, setQuickAddVariationFor] = useState(null); // poseId
+  const [quickVarName, setQuickVarName] = useState('');
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddName, setQuickAddName] = useState('');
+  const [quickAddSided, setQuickAddSided] = useState(false);
   const { onDragStart, onDrop } = useDragSort(items, setItems);
 
   const hasSidedItems = items.some(it => { const p = poses.find(x=>x.id===it.poseId); return p?.isSided; });
@@ -878,16 +1010,41 @@ function VinyetteFormModal({ vinyette, onSave, onClose }) {
     }),
     [poses, q, catFilter]
   );
-  const addPose = (pose) => {
+
+  const addPoseToSeq = (pose, variationId = null) => {
+    const variation = variationId ? (pose.variations || []).find(v => v.id === variationId) : null;
     setItems(it => {
       const prevPoseId = it.length > 0 ? it[it.length-1].poseId : null;
       const match = lookupTransition(transitions, prevPoseId, pose.id);
       const transition = match
         ? { libraryId: match.id, cues: match.cues.map(c=>({...c})), enabled: true }
         : emptyTransition();
-      return [...it, { poseId: pose.id, cues: [...pose.cues], side: '', transition }];
+      return [...it, { poseId: pose.id, variationId: variationId || null, cues: variation ? [...variation.cues] : [...pose.cues], side: '', transition }];
     });
   };
+  // Legacy: picker button clicks (no variation)
+  const addPose = (pose) => addPoseToSeq(pose, null);
+
+  const submitQuickVariation = (pose) => {
+    if (!quickVarName.trim()) return;
+    const newVariation = { id: uid(), name: quickVarName.trim(), cues: [] };
+    const updatedPose = { ...pose, variations: [...(pose.variations || []), newVariation] };
+    ctxUpdatePose(updatedPose);
+    addPoseToSeq(updatedPose, newVariation.id);
+    setQuickAddVariationFor(null);
+    setQuickVarName('');
+  };
+
+  const submitQuickAdd = () => {
+    if (!quickAddName.trim()) return;
+    const newPose = { id: uid(), name: quickAddName.trim(), description: '', imageUrl: '', isSided: quickAddSided, categories: [], cues: [], variations: [] };
+    ctxAddPose(newPose);
+    addPoseToSeq(newPose, null);
+    setShowQuickAdd(false);
+    setQuickAddName('');
+    setQuickAddSided(false);
+  };
+
   const mirrorItems = () => setItems(it => it.map(item => ({ ...item, side: flipSide(item.side || '') })));
   const save = () => {
     if (!name.trim()) return;
@@ -912,18 +1069,85 @@ function VinyetteFormModal({ vinyette, onSave, onClose }) {
               </div>
             </div>
             <CategoryFilter selected={catFilter} onChange={setCatFilter} />
-            <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
+            <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-0.5">
               {filtered.length === 0 && <p className="text-xs text-stone-400 p-2 text-center">No poses found</p>}
-              {filtered.map(p => (
-                <button key={p.id} onClick={()=>addPose(p)}
-                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-sage-50 text-left transition-colors group">
-                  <div className="w-8 h-8 rounded-md overflow-hidden bg-sage-100 shrink-0">
-                    <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+              {filtered.map(p => {
+                const hasVariations = (p.variations || []).length > 0;
+                const isExpanded = !!expandedPoses[p.id];
+                const isAddingVariation = quickAddVariationFor === p.id;
+                return (
+                  <div key={p.id}>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-sage-50 transition-colors group">
+                      <div className="w-8 h-8 rounded-md overflow-hidden bg-sage-100 shrink-0 cursor-pointer" onClick={()=>addPose(p)}>
+                        <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="flex-1 text-sm text-stone-700 truncate group-hover:text-sage-700 cursor-pointer" onClick={()=>addPose(p)}>{p.name}</span>
+                      {hasVariations && (
+                        <button type="button" onClick={()=>setExpandedPoses(e=>({...e,[p.id]:!e[p.id]}))}
+                          className={`text-stone-300 hover:text-stone-500 transition-all shrink-0 ${isExpanded ? '' : '-rotate-90'}`}>
+                          {Icon.chevDown}
+                        </button>
+                      )}
+                      <span className="text-stone-300 group-hover:text-sage-400 shrink-0 cursor-pointer" onClick={()=>addPose(p)}>{Icon.plus}</span>
+                    </div>
+                    {isExpanded && (
+                      <div className="ml-3 border-l border-stone-100 pl-2 space-y-0.5 mb-0.5">
+                        {(p.variations || []).map(v => (
+                          <button key={v.id} type="button" onClick={()=>addPoseToSeq(p, v.id)}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-terra-50 text-left transition-colors group/v">
+                            <div className="w-5 h-5 rounded bg-terra-100 flex items-center justify-center text-terra-400 shrink-0 text-xs font-bold">V</div>
+                            <span className="flex-1 text-xs text-stone-600 truncate group-hover/v:text-terra-700">{v.name || 'Unnamed'}</span>
+                            <span className="text-stone-300 group-hover/v:text-terra-400 shrink-0">{Icon.plus}</span>
+                          </button>
+                        ))}
+                        {isAddingVariation ? (
+                          <div className="px-1 py-1.5 space-y-1.5">
+                            <input autoFocus value={quickVarName} onChange={e=>setQuickVarName(e.target.value)}
+                              onKeyDown={e=>{if(e.key==='Enter')submitQuickVariation(p);if(e.key==='Escape'){setQuickAddVariationFor(null);setQuickVarName('');}}}
+                              placeholder="Variation name…"
+                              className="w-full text-xs border border-terra-200 rounded-lg px-2.5 py-1.5 focus:border-terra-400 focus:ring-1 focus:ring-terra-50 transition-all" />
+                            <div className="flex gap-1.5">
+                              <Btn size="xs" variant="terra" onClick={()=>submitQuickVariation(p)} disabled={!quickVarName.trim()}>Add</Btn>
+                              <button onClick={()=>{setQuickAddVariationFor(null);setQuickVarName('');}} className="text-stone-400 hover:text-stone-600 p-1">{Icon.x}</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={()=>{setQuickAddVariationFor(p.id);setQuickVarName('');}}
+                            className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs text-stone-400 hover:text-terra-600 transition-colors">
+                            {Icon.plus} New variation…
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm text-stone-700 truncate group-hover:text-sage-700">{p.name}</span>
-                  <span className="ml-auto text-stone-300 group-hover:text-sage-400 shrink-0">{Icon.plus}</span>
+                );
+              })}
+            </div>
+            {/* Quick add new pose */}
+            <div className="border-t border-stone-100">
+              {showQuickAdd ? (
+                <div className="p-2.5 space-y-2 bg-stone-50">
+                  <p className="text-xs font-medium text-stone-500">New pose</p>
+                  <input autoFocus value={quickAddName} onChange={e=>setQuickAddName(e.target.value)}
+                    onKeyDown={e=>{if(e.key==='Enter')submitQuickAdd();if(e.key==='Escape'){setShowQuickAdd(false);setQuickAddName('');}}}
+                    placeholder="Pose name…"
+                    className="w-full text-sm border border-stone-200 rounded-lg px-3 py-1.5 focus:border-sage-400 focus:ring-1 focus:ring-sage-100 transition-all" />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={()=>setQuickAddSided(s=>!s)}
+                      className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${quickAddSided ? 'bg-sage-500 text-white' : 'bg-stone-100 text-stone-500'}`}>L/R</button>
+                    <span className="text-xs text-stone-400">One-sided</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Btn size="xs" variant="primary" onClick={submitQuickAdd} disabled={!quickAddName.trim()} className="flex-1 justify-center">Add to sequence</Btn>
+                    <button onClick={()=>{setShowQuickAdd(false);setQuickAddName('');}} className="text-stone-400 hover:text-stone-600 p-1">{Icon.x}</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={()=>setShowQuickAdd(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-stone-400 hover:text-sage-600 hover:bg-stone-50 transition-colors">
+                  {Icon.plus} New pose…
                 </button>
-              ))}
+              )}
             </div>
           </div>
           {/* Sequence */}
@@ -987,12 +1211,18 @@ function VinyettesPage() {
     setShowForm(false); setEditing(null);
   };
   const viewSteps = (v) => {
-    const steps = v.items.map((item) => ({
-      pose: poses.find(p=>p.id===item.poseId),
-      cues: item.cues,
-      side: item.side||'',
-      transition: item.transition || emptyTransition(),
-    })).filter(s=>s.pose);
+    const steps = v.items.map((item) => {
+      const pose = poses.find(p=>p.id===item.poseId);
+      if (!pose) return null;
+      const variation = item.variationId ? (pose.variations||[]).find(vr=>vr.id===item.variationId) : null;
+      return {
+        pose,
+        variationName: variation?.name || null,
+        cues: item.cues,
+        side: item.side||'',
+        transition: item.transition || emptyTransition(),
+      };
+    }).filter(Boolean);
     setViewing({ title: v.name, steps });
   };
 
@@ -1060,13 +1290,19 @@ function VinyettesPage() {
 
 // ─── Class Form Modal ─────────────────────────────────────────────────────────
 function ClassFormModal({ cls, onSave, onClose }) {
-  const { poses, vinyettes, transitions, addVinyette: saveVinyette, saveTransitionToLibrary } = useApp();
+  const { poses, vinyettes, transitions, addVinyette: saveVinyette, saveTransitionToLibrary, addPose: ctxAddPose, updatePose: ctxUpdatePose } = useApp();
   const [name, setName] = useState(cls?.name || '');
   const [items, setItems] = useState(cls?.items ? cls.items.map(i=>({...i, cues: i.cues ? [...i.cues] : undefined, transition: i.transition ? {...i.transition, cues:[...(i.transition.cues||[])]} : (i.type !== 'section' ? emptyTransition() : undefined)})) : []);
   const [q, setQ] = useState('');
   const [catFilter, setCatFilter] = useState([]);
   const [pickerTab, setPickerTab] = useState('poses');
   const [expandedVinyettes, setExpandedVinyettes] = useState({});
+  const [expandedPoses, setExpandedPoses] = useState({});
+  const [quickAddVariationFor, setQuickAddVariationFor] = useState(null);
+  const [quickVarName, setQuickVarName] = useState('');
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddName, setQuickAddName] = useState('');
+  const [quickAddSided, setQuickAddSided] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
   const [newSectionName, setNewSectionName] = useState('');
   const [savingSection, setSavingSection] = useState(null); // {idx, name}
@@ -1088,15 +1324,37 @@ function ClassFormModal({ cls, onSave, onClose }) {
   }),[poses,q,catFilter]);
   const filteredVinyettes = useMemo(()=>vinyettes.filter(v=>v.name.toLowerCase().includes(q.toLowerCase())),[vinyettes,q]);
 
-  const addPose = (p) => setItems(it => {
+  const addPose = (p, variationId = null) => setItems(it => {
     const prevPose = [...it].reverse().find(x => x.type === 'pose');
     const prevPoseId = prevPose ? prevPose.refId : null;
     const match = lookupTransition(transitions, prevPoseId, p.id);
     const transition = match
       ? { libraryId: match.id, cues: match.cues.map(c=>({...c})), enabled: true }
       : emptyTransition();
-    return [...it, {type:'pose', refId:p.id, cues:p.cues.slice(0,2), side:'', transition}];
+    const variation = variationId ? (p.variations||[]).find(v=>v.id===variationId) : null;
+    const cues = variation ? variation.cues.slice(0,2) : p.cues.slice(0,2);
+    return [...it, {type:'pose', refId:p.id, variationId: variationId||null, cues, side:'', transition}];
   });
+
+  const submitQuickVariationClass = (pose) => {
+    if (!quickVarName.trim()) return;
+    const newVariation = { id: uid(), name: quickVarName.trim(), cues: [] };
+    const updatedPose = { ...pose, variations: [...(pose.variations || []), newVariation] };
+    ctxUpdatePose(updatedPose);
+    addPose(updatedPose, newVariation.id);
+    setQuickAddVariationFor(null);
+    setQuickVarName('');
+  };
+
+  const submitQuickAddClass = () => {
+    if (!quickAddName.trim()) return;
+    const newPose = { id: uid(), name: quickAddName.trim(), description: '', imageUrl: '', isSided: quickAddSided, categories: [], cues: [], variations: [] };
+    ctxAddPose(newPose);
+    addPose(newPose, null);
+    setShowQuickAdd(false);
+    setQuickAddName('');
+    setQuickAddSided(false);
+  };
   const addVinyette = (v) => setItems(it=>[...it, {type:'vinyette', refId:v.id, cues:[], side:'', transition: emptyTransition()}]);
   const addSection = () => {
     const n = newSectionName.trim() || 'New Section';
@@ -1200,15 +1458,59 @@ function ClassFormModal({ cls, onSave, onClose }) {
               </div>
             </div>
             {pickerTab==='poses' && <CategoryFilter selected={catFilter} onChange={setCatFilter} />}
-            <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
-              {pickerTab==='poses' && filteredPoses.map(p=>(
-                <button key={p.id} onClick={()=>addPose(p)}
-                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-sage-50 text-left transition-colors group">
-                  <div className="w-8 h-8 rounded-md overflow-hidden bg-sage-100 shrink-0"><PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /></div>
-                  <span className="text-sm text-stone-700 truncate group-hover:text-sage-700">{p.name}</span>
-                  <span className="ml-auto text-stone-300 group-hover:text-sage-400 shrink-0">{Icon.plus}</span>
-                </button>
-              ))}
+            <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-0.5">
+              {pickerTab==='poses' && filteredPoses.length === 0 && <p className="text-xs text-stone-400 p-2 text-center">No poses found</p>}
+              {pickerTab==='poses' && filteredPoses.map(p=>{
+                const hasVariations = (p.variations||[]).length > 0;
+                const isExpanded = !!expandedPoses[p.id];
+                const isAddingVariation = quickAddVariationFor === p.id;
+                return (
+                  <div key={p.id}>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-sage-50 transition-colors group">
+                      <div className="w-8 h-8 rounded-md overflow-hidden bg-sage-100 shrink-0 cursor-pointer" onClick={()=>addPose(p)}>
+                        <PoseImg src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                      <span className="flex-1 text-sm text-stone-700 truncate group-hover:text-sage-700 cursor-pointer" onClick={()=>addPose(p)}>{p.name}</span>
+                      {hasVariations && (
+                        <button type="button" onClick={()=>setExpandedPoses(e=>({...e,[p.id]:!e[p.id]}))}
+                          className={`text-stone-300 hover:text-stone-500 transition-all shrink-0 ${isExpanded?'':'-rotate-90'}`}>
+                          {Icon.chevDown}
+                        </button>
+                      )}
+                      <span className="text-stone-300 group-hover:text-sage-400 shrink-0 cursor-pointer" onClick={()=>addPose(p)}>{Icon.plus}</span>
+                    </div>
+                    {isExpanded && (
+                      <div className="ml-3 border-l border-stone-100 pl-2 space-y-0.5 mb-0.5">
+                        {(p.variations||[]).map(v=>(
+                          <button key={v.id} type="button" onClick={()=>addPose(p, v.id)}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-terra-50 text-left transition-colors group/v">
+                            <div className="w-5 h-5 rounded bg-terra-100 flex items-center justify-center text-terra-400 shrink-0 text-xs font-bold">V</div>
+                            <span className="flex-1 text-xs text-stone-600 truncate group-hover/v:text-terra-700">{v.name||'Unnamed'}</span>
+                            <span className="text-stone-300 group-hover/v:text-terra-400 shrink-0">{Icon.plus}</span>
+                          </button>
+                        ))}
+                        {isAddingVariation ? (
+                          <div className="px-1 py-1.5 space-y-1.5">
+                            <input autoFocus value={quickVarName} onChange={e=>setQuickVarName(e.target.value)}
+                              onKeyDown={e=>{if(e.key==='Enter')submitQuickVariationClass(p);if(e.key==='Escape'){setQuickAddVariationFor(null);setQuickVarName('');}}}
+                              placeholder="Variation name…"
+                              className="w-full text-xs border border-terra-200 rounded-lg px-2.5 py-1.5 focus:border-terra-400 focus:ring-1 focus:ring-terra-50 transition-all" />
+                            <div className="flex gap-1.5">
+                              <Btn size="xs" variant="terra" onClick={()=>submitQuickVariationClass(p)} disabled={!quickVarName.trim()}>Add</Btn>
+                              <button onClick={()=>{setQuickAddVariationFor(null);setQuickVarName('');}} className="text-stone-400 hover:text-stone-600 p-1">{Icon.x}</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={()=>{setQuickAddVariationFor(p.id);setQuickVarName('');}}
+                            className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs text-stone-400 hover:text-terra-600 transition-colors">
+                            {Icon.plus} New variation…
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {pickerTab==='vinyettes' && filteredVinyettes.map(v=>(
                 <button key={v.id} onClick={()=>addVinyette(v)}
                   className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-terra-50 text-left transition-colors group">
@@ -1221,6 +1523,34 @@ function ClassFormModal({ cls, onSave, onClose }) {
                 </button>
               ))}
             </div>
+            {/* Quick add new pose — only visible in poses tab */}
+            {pickerTab === 'poses' && (
+              <div className="border-t border-stone-100">
+                {showQuickAdd ? (
+                  <div className="p-2.5 space-y-2 bg-stone-50">
+                    <p className="text-xs font-medium text-stone-500">New pose</p>
+                    <input autoFocus value={quickAddName} onChange={e=>setQuickAddName(e.target.value)}
+                      onKeyDown={e=>{if(e.key==='Enter')submitQuickAddClass();if(e.key==='Escape'){setShowQuickAdd(false);setQuickAddName('');}}}
+                      placeholder="Pose name…"
+                      className="w-full text-sm border border-stone-200 rounded-lg px-3 py-1.5 focus:border-sage-400 focus:ring-1 focus:ring-sage-100 transition-all" />
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={()=>setQuickAddSided(s=>!s)}
+                        className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${quickAddSided ? 'bg-sage-500 text-white' : 'bg-stone-100 text-stone-500'}`}>L/R</button>
+                      <span className="text-xs text-stone-400">One-sided</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <Btn size="xs" variant="primary" onClick={submitQuickAddClass} disabled={!quickAddName.trim()} className="flex-1 justify-center">Add to class</Btn>
+                      <button onClick={()=>{setShowQuickAdd(false);setQuickAddName('');}} className="text-stone-400 hover:text-stone-600 p-1">{Icon.x}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={()=>setShowQuickAdd(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-stone-400 hover:text-sage-600 hover:bg-stone-50 transition-colors">
+                    {Icon.plus} New pose…
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           {/* Sequence */}
           <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-3">
@@ -1417,16 +1747,22 @@ function ClassOutlineModal({ cls, sections, onPlay, onEdit, onClose }) {
     sectionItems.forEach((item) => {
       if (item.type==='pose') {
         const pose = poses.find(p=>p.id===item.refId);
-        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transition: item.transition || emptyTransition() });
+        if (pose) {
+          const variation = item.variationId ? (pose.variations||[]).find(v=>v.id===item.variationId) : null;
+          steps.push({ pose, variationName: variation?.name||null, cues:item.cues, side:item.side||'', transition: item.transition || emptyTransition() });
+        }
       } else if (item.type==='vinyette') {
         const v = vinyettes.find(x=>x.id===item.refId);
         if (v) v.items.forEach((vi, j) => {
           const pose = poses.find(p=>p.id===vi.poseId);
-          if (pose) steps.push({
-            pose, cues:vi.cues, side:vi.side||'',
-            transition: j<v.items.length-1 ? (vi.transition || emptyTransition()) : (item.transition || emptyTransition()),
-            groupName: v.name,
-          });
+          if (pose) {
+            const variation = vi.variationId ? (pose.variations||[]).find(vr=>vr.id===vi.variationId) : null;
+            steps.push({
+              pose, variationName: variation?.name||null, cues:vi.cues, side:vi.side||'',
+              transition: j<v.items.length-1 ? (vi.transition || emptyTransition()) : (item.transition || emptyTransition()),
+              groupName: v.name,
+            });
+          }
         });
       }
     });
@@ -1505,7 +1841,10 @@ function ClassOutlineModal({ cls, sections, onPlay, onEdit, onClose }) {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className="text-sm font-medium text-stone-700">{pose.name}</p>
+                                  <p className="text-sm font-medium text-stone-700">
+                                    {pose.name}
+                                    {item.variationId && (() => { const v = (pose.variations||[]).find(vr=>vr.id===item.variationId); return v ? <span className="text-terra-600 font-normal"> · {v.name}</span> : null; })()}
+                                  </p>
                                   {item.side === 'right' && <span className="text-xs font-medium text-sage-600 bg-sage-50 px-1.5 py-0.5 rounded">Right</span>}
                                   {item.side === 'left' && <span className="text-xs font-medium text-terra-600 bg-terra-50 px-1.5 py-0.5 rounded">Left</span>}
                                   {pose.isSided && !item.side && <span className="text-xs font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Side?</span>}
@@ -1597,17 +1936,23 @@ function ClassesPage() {
         steps.push({ isSection: true, sectionName: item.name });
       } else if (item.type==='pose') {
         const pose = poses.find(p=>p.id===item.refId);
-        if (pose) steps.push({ pose, cues:item.cues, side:item.side||'', transition: item.transition || emptyTransition() });
+        if (pose) {
+          const variation = item.variationId ? (pose.variations||[]).find(v=>v.id===item.variationId) : null;
+          steps.push({ pose, variationName: variation?.name||null, cues:item.cues, side:item.side||'', transition: item.transition || emptyTransition() });
+        }
       } else if (item.type==='vinyette') {
         const v = vinyettes.find(x=>x.id===item.refId);
         if (v) {
           v.items.forEach((vi, j) => {
             const pose = poses.find(p=>p.id===vi.poseId);
-            if (pose) steps.push({
-              pose, cues:vi.cues, side:vi.side||'',
-              transition: j<v.items.length-1 ? (vi.transition || emptyTransition()) : (item.transition || emptyTransition()),
-              groupName: v.name,
-            });
+            if (pose) {
+              const variation = vi.variationId ? (pose.variations||[]).find(vr=>vr.id===vi.variationId) : null;
+              steps.push({
+                pose, variationName: variation?.name||null, cues:vi.cues, side:vi.side||'',
+                transition: j<v.items.length-1 ? (vi.transition || emptyTransition()) : (item.transition || emptyTransition()),
+                groupName: v.name,
+              });
+            }
           });
         }
       }
@@ -1719,12 +2064,12 @@ function ClassesPage() {
 
 // ─── Import/Export ─────────────────────────────────────────────────────────────
 function ImportExportModal({ onClose }) {
-  const { poses, transitions, vinyettes, classes, importAll } = useApp();
+  const { poses, transitions, vinyettes, classes, customCategories, importAll } = useApp();
   const [importText, setImportText] = useState('');
   const [msg, setMsg] = useState('');
 
   const doExport = () => {
-    const data = JSON.stringify({ poses, transitions, vinyettes, classes }, null, 2);
+    const data = JSON.stringify({ poses, transitions, vinyettes, classes, customCategories }, null, 2);
     const blob = new Blob([data], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download='yoga-data.json'; a.click();
@@ -2053,11 +2398,19 @@ function AppProvider({ children }) {
   const [transitions, setTransitions] = useState(() => storage.load(KEYS.transitions) || []);
   const [vinyettes, setVinyettes] = useState(() => storage.load(KEYS.vinyettes) || []);
   const [classes, setClasses] = useState(() => storage.load(KEYS.classes) || []);
+  const [customCategories, setCustomCategories] = useState(() => storage.load(KEYS.customCategories) || []);
 
   useEffect(() => { storage.save(KEYS.poses, poses); }, [poses]);
   useEffect(() => { storage.save(KEYS.transitions, transitions); }, [transitions]);
   useEffect(() => { storage.save(KEYS.vinyettes, vinyettes); }, [vinyettes]);
   useEffect(() => { storage.save(KEYS.classes, classes); }, [classes]);
+  useEffect(() => { storage.save(KEYS.customCategories, customCategories); }, [customCategories]);
+
+  const addCustomCategory = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed || POSE_CATEGORIES.includes(trimmed)) return;
+    setCustomCategories(cs => cs.includes(trimmed) ? cs : [...cs, trimmed]);
+  };
 
   // Resolve poseName items → pose refId items using a known poses array
   const resolveClass = (seedClass, knownPoses) => {
@@ -2203,7 +2556,7 @@ function AppProvider({ children }) {
     });
   };
 
-  const importAll = ({ poses: p, transitions: tr, vinyettes: v, classes: c }) => {
+  const importAll = ({ poses: p, transitions: tr, vinyettes: v, classes: c, customCategories: cc }) => {
     if (p) setPoses(existing => {
       const names = new Set(existing.map(x=>x.name));
       const newOnes = p.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
@@ -2224,6 +2577,11 @@ function AppProvider({ children }) {
       const newOnes = c.filter(x=>!names.has(x.name)).map(x=>({...x, id: x.id||uid()}));
       return [...existing, ...newOnes];
     });
+    if (cc) setCustomCategories(existing => {
+      const merged = [...existing];
+      cc.forEach(cat => { if (!merged.includes(cat) && !POSE_CATEGORIES.includes(cat)) merged.push(cat); });
+      return merged;
+    });
   };
 
   const ctx = {
@@ -2231,6 +2589,7 @@ function AppProvider({ children }) {
     transitions, saveTransition, deleteTransition, saveTransitionToLibrary,
     vinyettes, addVinyette, updateVinyette, deleteVinyette,
     classes, addClass, updateClass, deleteClass,
+    customCategories, addCustomCategory,
     importAll,
   };
   return <AppCtx.Provider value={ctx}>{children}</AppCtx.Provider>;
